@@ -25,3 +25,9 @@ public class DecisionTree<K, V> where K: notnull where V: notnull{
         currHolder[key[^1]] = value;
     }
 }
+
+public class ExceptionHandler{
+    public ExceptionHandler(){
+        throw new NotImplementedException();
+    }
+}

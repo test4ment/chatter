@@ -12,10 +12,6 @@ public class PrintMsg : ICommand{
     }
 }
 
-public interface IPrintable {
-    public void Print(string message);
-}
-
 public class StopApp : ICommand{
     public void Execute(){
         IoC.Set("IsRunning", (object[] args) => {return false;});
@@ -28,16 +24,15 @@ public class ClearConsole : ICommand{
     }
 }
 
-public class TestingProcedure : ICommand {
+public class MacroCmd : ICommand{
+    private IEnumerable<ICommand> cmds;
+    public MacroCmd(params ICommand[] cmds){
+        this.cmds = cmds;
+    }
+
     public void Execute(){
-        IoC.Set("stdout writer", (object[] args) => {
-            return new StdOutPrintAdapter();
-        });
-
-        new PrintMsg("Hello world!").Execute();
-
-        Thread.Sleep(1000 * 2);
-
-        new StopApp().Execute();
+        foreach(var cmd in cmds){
+            cmd.Execute();
+        }
     }
 }
