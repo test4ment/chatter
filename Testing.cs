@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 public class TestingProcedure : ICommand {
     public void Execute(){
         IoC.Set("stdout writer", (object[] args) => {
