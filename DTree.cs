@@ -26,8 +26,54 @@ public class DecisionTree<K, V> where K: notnull where V: notnull{
     }
 }
 
-public class ExceptionHandler{
-    public ExceptionHandler(){
+public static class ExceptionHandler{
+    private static readonly Dictionary<Type?, Dictionary<Type?, Action<Type, Type>>?> strategiesCmd = new();
+    static ExceptionHandler(){
         throw new NotImplementedException();
+    }
+
+    public static void AddStrategy(Type cmd, Type exception, Action<Type, Type> strat){ // remake with nulls in dictionary!!
+        try{
+            strategiesCmd[cmd][exception] = strat;
+        }
+        catch(KeyNotFoundException){
+            strategiesCmd[cmd] = new Dictionary<Type, Action<Type, Type>>(){
+                {exception, strat}
+            };
+        }
+    }
+    public static void Handle(ICommand cmd, Exception exception){
+        Type cmdType = cmd.GetType();
+        Type exType = exception.GetType();
+
+        Handle(cmdType, exType);
+    }
+
+    public static void Handle(Type cmdType, Type exType){
+
+        // Dictionary<Type, Action<Type, Type>>? strats;
+        if(strategiesCmd.ContainsKey(cmdType)){
+            try{
+                strategiesCmd[cmdType][exType](cmdType, exType);
+            }
+            catch (KeyNotFoundException){
+                HandleUnknownException(cmdType, exType);
+            }
+        }
+        else{
+            HandleUnknownCmd(cmdType, exType);
+        }
+    }
+
+    private static void HandleUnknownCmd(Type cmd, Type exception){
+
+    }
+
+    private static void HandleUnknownException(Type cmd, Type exception){
+
+    }
+
+    private static void DefaultHandle(){
+
     }
 }
