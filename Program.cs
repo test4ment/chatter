@@ -7,6 +7,7 @@ ICommand cmd;
 IoC.Set("IsRunning", (object[] args) => {return true;});
 
 queue.Add(new TestingProcedure());
+queue.Add(new StopApp());
 
 Thread t = new Thread(() => {
         while(IoC.Get<bool>("IsRunning")){
@@ -15,7 +16,7 @@ Thread t = new Thread(() => {
                 cmd.Execute();
             }
             catch(Exception e){
-                IoC.Get<ICommand>("Exception.Handler", e, cmd).Execute();
+                IoC.Get<ICommand>("Exception.Handler", cmd, e).Execute();
             }
         }
     }

@@ -36,3 +36,17 @@ public class MacroCmd : ICommand{
         }
     }
 }
+
+public class HandleExceptionCmd : ICommand{
+    ICommand cmd;
+    Exception ex;
+
+    public HandleExceptionCmd(ICommand cmd, Exception ex){
+        this.cmd = cmd;
+        this.ex = ex;
+    }
+
+    public void Execute(){
+        ExceptionHandler.GetHandler(cmd.GetType(), ex.GetType())(cmd, ex);
+    }
+}
