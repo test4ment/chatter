@@ -1,13 +1,20 @@
 ﻿// rewrite into app command
 
-using System.Collections.Concurrent;
+global using System.Collections.Concurrent;
+global using System.Net;
+global using System.Net.Sockets;
 
 BlockingCollection<ICommand> queue = new();
-ICommand cmd;
+IoC.Set("Queue", (object[] args) => {return queue;});
+
 IoC.Set("IsRunning", (object[] args) => {return true;});
 
-queue.Add(new TestingProcedure());
-queue.Add(new StopApp());
+queue.Add(new DefaultInit());
+// queue.Add(new TestingProcedure());
+queue.Add(new HelloUser());
+// queue.Add(new StopApp());
+
+ICommand cmd;
 
 Thread t = new Thread(() => {
         while(IoC.Get<bool>("IsRunning")){

@@ -1,6 +1,28 @@
 public class TestingProcedure : ICommand {
     public void Execute(){
+        new PrintLineMsg("Hello world!").Execute();
+
+        var zero = 0;
+        var a = 1/zero;
+
+        Thread.Sleep(1000 * 2);
+    }
+}
+
+public class DefaultInit : ICommand
+{
+    public void Execute()
+    {
+        var commands = new Dictionary<string, Action>(){
+            {"connect", () => {throw new NotImplementedException();}},
+            {"help", () => {Console.WriteLine("HEEELPP!");}}
+        };
+
         IoC.Set("stdout writer", (object[] args) => {
+            return new StdOutPrintLineAdapter();
+        });
+
+        IoC.Set("stdout writer no newline", (object[] args) => {
             return new StdOutPrintAdapter();
         });
 
@@ -14,11 +36,39 @@ public class TestingProcedure : ICommand {
             Console.WriteLine(ex.StackTrace);
         });
 
-        new PrintMsg("Hello world!").Execute();
+        ExceptionHandler.SetHandler(typeof(RepeatCommand), typeof(NullReferenceException), (a, b) => {});
 
-        var zero = 0;
-        var a = 1/zero;
+        IoC.Set("Commands.Handler", (object[] args) => {
+            string cmd = (string)args[0];
+            if(cmd[0] != '/' || cmd.Length < 2) return new ActionCommand(() => {});
+            cmd = cmd[1..];
+            string[] cmdargs = cmd.Split(); // load to ioc?
 
-        Thread.Sleep(1000 * 2);
+            return new ActionCommand(() => {
+                commands.GetValueOrDefault(cmdargs[0], () => {Console.WriteLine("unkonw cmd");});
+            });
+        });
+    }
+}
+
+public class HelloUser : ICommand
+{
+    public void Execute()
+    {
+        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
+        q.Add(new StartCommandListener());
+        q.Add(new PrintLineMsg("Hello user! Write your name:"));
+        q.Add(new AwaitInputOnce("username", new GreetUser(), new StartServer()));
+    }
+}
+
+public class StartServer : ICommand
+{
+    public void Execute()
+    {
+        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
+
+        q.Add(new RegisterTcp());
+        q.Add(new StartListeningTcp());
     }
 }
