@@ -255,7 +255,7 @@ public class GreetUser : ICommand
     public void Execute()
     {
         new PrintMsg("Hello ").Execute();
-        new PrintFromIoC("Input.username").Execute();
+        new PrintFromIoC("Input.input").Execute();
         new PrintMsg("!\n").Execute();
     }
 }
@@ -277,10 +277,10 @@ public class StartListeningTcp : ICommand
     {
         new PrintLineMsg("Write local machine IP to listen connections:").Execute();
         new AwaitInputOnce(
-            "localip", 
+            "input", 
             new BindAndListenTcp(port), 
             new PrintMsg("Listening at "), 
-            new PrintFromIoC("Input.localip"), 
+            new PrintFromIoC("Input.input"), 
             new PrintMsg($":{port}\n")
         ).Execute();
     }
@@ -339,15 +339,6 @@ public class HandleOneCommand : ICommand
     }
 }
 
-public class StartCommandListener : ICommand
-{
-    public void Execute()
-    {
-        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-        q.Add(new StartInputListener("cmd", new HandleOneCommand()));
-    }
-}
-
 public class AwaitInputOnce : ICommand
 {
     private string var_name;
@@ -355,13 +346,13 @@ public class AwaitInputOnce : ICommand
     public AwaitInputOnce(string var_name, params ICommand[] do_on_success)
     {
         this.var_name = var_name;
-        this.do_on_success = new[] {new StopInputListener(var_name)}.Concat(do_on_success).ToArray();
+        this.do_on_success = do_on_success;
     }
 
     public void Execute()
     {
         var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-        q.Add(new StartInputListener(var_name));
+        // q.Add(new StartInputListener(var_name));
         q.Add(new AwaitIoCVar("Input." + var_name, new MacroCmd(do_on_success)));
     }
 }

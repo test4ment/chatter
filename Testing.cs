@@ -40,7 +40,7 @@ public class DefaultInit : ICommand
 
         IoC.Set("Commands.Handler", (object[] args) => {
             string cmd = (string)args[0];
-            if(cmd[0] != '/' || cmd.Length < 2) return new ActionCommand(() => {});
+            if(cmd.Length < 2 || cmd[0] != '/') return new ActionCommand(() => {});
             cmd = cmd[1..];
             string[] cmdargs = cmd.Split(); // load to ioc?
 
@@ -56,9 +56,9 @@ public class HelloUser : ICommand
     public void Execute()
     {
         var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-        q.Add(new StartCommandListener());
         q.Add(new PrintLineMsg("Hello user! Write your name:"));
-        q.Add(new AwaitInputOnce("username", new GreetUser(), new StartServer()));
+        q.Add(new StartInputListener("input"));
+        q.Add(new AwaitInputOnce("input", new GreetUser(), new StartServer()));
     }
 }
 
