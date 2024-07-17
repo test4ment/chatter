@@ -81,7 +81,7 @@ public class TryWriteStdIn : ICommand
     {
         if (Console.KeyAvailable){
             new UserInputStdIn(var_to_write).Execute();
-            on_success?.Execute();
+            on_success?.Execute();            
         }
     }
 }
@@ -98,28 +98,42 @@ public class TryReadIoCVar : ICommand
 
     public void Execute()
     {
+        // Console.WriteLine($"Trying to read {var_to_read}");
         try{
-            IoC.Get<object>(var_to_read);
+            if(IoC.Get<object>(var_to_read) is null) return;
             on_read.Execute();
         }
         catch(KeyNotFoundException){}
     }
 }
 
+public class NullifyIoCVar : ICommand
+{
+    private string varname;
+    public NullifyIoCVar(string varname)
+    {
+        this.varname = varname;
+    }
+
+    public void Execute()
+    {
+        IoC.Set(varname, (object[] args) => {return null!;});
+    }
+}
+
 public class AwaitIoCVar : TryReadIoCVar, ICommand
 {
-    public AwaitIoCVar(string var_to_read, ICommand on_read) : base(var_to_read, on_read)
-    {
-    }
+    public AwaitIoCVar(string var_to_read, ICommand on_read) : base(var_to_read, on_read){}
 
     public new void Execute()
     {
-        var dep = "Await.Input." + var_to_read;
+        var_to_read = "Input." + var_to_read;
+        var dep = "Await." + var_to_read;
         new StartRepeating(
             dep, 
             new TryReadIoCVar(
-                var_to_read, 
-                new MacroCmd(new StopRepeating(dep), on_read)
+                var_to_read,
+                new MacroCmd(new StopRepeating(dep), on_read, new NullifyIoCVar(var_to_read))
             )
         ).Execute();
     }
@@ -164,10 +178,26 @@ public class HandleExceptionCmd : ICommand{
     }
 }
 
-public class StartListener : ICommand{
+public class StartCmdListener : ICommand{
     public void Execute()
     {
-        throw new NotImplementedException();
+        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
+        var createmyself = new ActionCommand(() => {q.Add(new StartCmdListener());});
+        var cmd = new MacroCmd(
+            new HandleOneCommand(),
+            createmyself
+        );
+        
+        q.Add(new AwaitIoCVar("input", new ExecuteOnException(
+            cmd,
+            new MacroCmd(
+                // new PrintLineMsg("An exception occured!"),
+                new ActionCommand(() => {
+                    new HandleExceptionCmd(new HandleOneCommand(), IoC.Get<Exception>("Latest exception")).Execute();
+                }),
+                createmyself
+            )
+        )));
     }
 }
 
@@ -260,6 +290,23 @@ public class GreetUser : ICommand
     }
 }
 
+public class RememberUsername : ICommand
+{
+    public void Execute()
+    {
+        var name = IoC.Get<string>("Input.input");
+        IoC.Set("Username", (object[] args) => {return name;});
+    }
+}
+
+public class PrintMyName : ICommand
+{
+    public void Execute()
+    {
+        new PrintLineMsg($"You are {IoC.Get<string>("Username")}").Execute();
+    }
+}
+
 public class RegisterTcp : ICommand{
     public void Execute(){
         var tcp_server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -275,14 +322,79 @@ public class StartListeningTcp : ICommand
     }
     public void Execute()
     {
-        new PrintLineMsg("Write local machine IP to listen connections:").Execute();
-        new AwaitInputOnce(
-            "input", 
-            new BindAndListenTcp(port), 
-            new PrintMsg("Listening at "), 
-            new PrintFromIoC("Input.input"), 
-            new PrintMsg($":{port}\n")
-        ).Execute();
+        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
+
+        q.Add(new PrintLineMsg("Write local machine IP to listen connections (leave empty for localhost)"));
+        q.Add(new AwaitIoCVar(
+            "input",
+            new ExecuteOnException(
+                new MacroCmd(
+                    new SetDefaultValueForInput<string>(
+                        (string str) => {
+                            return str != "";
+                        },
+                        "127.0.0.1"
+                    ),
+                    new BindAndListenTcp(port), 
+                    new PrintMsg("Listening at "),
+                    new PrintFromIoC("Input.input"), 
+                    new PrintMsg($":{port}\n"),
+                    new StartCmdListener()
+                ),
+                new MacroCmd(
+                    new NullifyIoCVar("input"),
+                    new StartListeningTcp(this.port)
+                )
+            )
+            
+            )
+        );
+    }
+}
+
+public class SetDefaultValueForInput<T> : ICommand
+where T: notnull
+{
+    Func<T, bool> condition;
+    T def;
+    public SetDefaultValueForInput(Func<T, bool> condition, T def)
+    {
+        this.condition = condition;
+        this.def = def;
+    }
+
+    public void Execute()
+    {
+        if(!condition(IoC.Get<T>("Input.input"))) IoC.Set("Input.input", (object[] args) => def);
+    }
+}
+
+public class ExecuteOnException : ICommand
+{
+    Type exception;
+    ICommand to_exec;
+    ICommand on_exception;
+    public ExecuteOnException(ICommand to_exec, ICommand on_exception, Type? exception = null)
+    {
+        this.exception = exception ?? typeof(Exception);
+        this.to_exec = to_exec;
+        this.on_exception = on_exception;
+    }
+
+    public void Execute()
+    {
+        try{
+            to_exec.Execute();
+        }
+        catch(Exception e){
+            if(exception.IsInstanceOfType(e)){
+                IoC.Set("Latest exception", (object[] args) => e);
+                on_exception.Execute();
+            }
+            else{
+                throw;
+            }
+        }
     }
 }
 
@@ -296,7 +408,7 @@ public class BindAndListenTcp : ICommand
     {
         Socket server = IoC.Get<Socket>("TCP server");
         server.Blocking = false;
-        server.Bind(new IPEndPoint(IPAddress.Parse(IoC.Get<string>("Input.localip")), port));
+        server.Bind(new IPEndPoint(IPAddress.Parse(IoC.Get<string>("Input.input")), port));
         server.Listen(1);
     }
 }
@@ -335,24 +447,8 @@ public class HandleOneCommand : ICommand
     public void Execute()
     {
         // new AwaitInputOnce("cmd").Execute();
-        IoC.Get<ICommand>("Commands.Handler", IoC.Get<string>("Input.cmd")).Execute();
+        IoC.Get<ICommand>("Commands.Handler", IoC.Get<string>("Input.input")).Execute();
     }
 }
 
-public class AwaitInputOnce : ICommand
-{
-    private string var_name;
-    private ICommand[] do_on_success;
-    public AwaitInputOnce(string var_name, params ICommand[] do_on_success)
-    {
-        this.var_name = var_name;
-        this.do_on_success = do_on_success;
-    }
 
-    public void Execute()
-    {
-        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-        // q.Add(new StartInputListener(var_name));
-        q.Add(new AwaitIoCVar("Input." + var_name, new MacroCmd(do_on_success)));
-    }
-}
