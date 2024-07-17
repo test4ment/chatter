@@ -21,6 +21,8 @@ public class DefaultInit : ICommand
         "setname <name> \t\t set new username \n"
         ;
 
+        var welcome = @"Welcome to chatter v0.1! Type ""/help"" to list all commands" + "\n";
+
         var commands = new Dictionary<string, Action<string[]>>(){
             {"connect", (argscmd) => {throw new NotImplementedException();}},
             {"help", (argscmd) => {new PrintLineMsg(helpmsg).Execute();}},
@@ -37,6 +39,8 @@ public class DefaultInit : ICommand
                 }
             }}
         };
+
+        IoC.Set("Welcome message", (object[] args) => welcome);
 
         IoC.Set("stdout writer", (object[] args) => {
             return new StdOutPrintLineAdapter();

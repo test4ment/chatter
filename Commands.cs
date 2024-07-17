@@ -339,6 +339,7 @@ public class StartListeningTcp : ICommand
                     new PrintMsg("Listening at "),
                     new PrintFromIoC("Input.input"), 
                     new PrintMsg($":{port}\n"),
+                    new PrintFromIoC("Welcome message"),
                     new StartCmdListener()
                 ),
                 new MacroCmd(
