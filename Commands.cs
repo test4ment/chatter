@@ -455,10 +455,13 @@ public class TryReadMessage : ICommand
         var bytesRead = new byte[1];
         
         while(await connected.ReceiveAsync(bytesRead) > 0){
+            Console.WriteLine("read");
             buffer.Add(bytesRead[0]); // 192.168.191.246
         }
+        Console.WriteLine("finished read", buffer.Count);
         
         if(buffer.Count == 0) return;
+        Console.WriteLine("passed return");
 
         var encoding = IoC.Get<Encoding>("Encoding");
 
