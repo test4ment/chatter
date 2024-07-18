@@ -82,7 +82,6 @@ public class TryWriteStdIn : ICommand
 
     public void Execute()
     {
-        Console.Write(Console.KeyAvailable);
         if (Console.KeyAvailable){
             new UserInputStdIn(var_to_write).Execute();
             on_success?.Execute();
