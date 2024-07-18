@@ -454,8 +454,9 @@ public class TryReadMessage : ICommand
         var buffer = new List<byte>();
         var bytesRead = new byte[1];
         
-        while(await connected.ReceiveAsync(bytesRead) > 0 && bytesRead[0] != 0x4){ // 0x4 End-of-Transmission
+        while(await connected.ReceiveAsync(bytesRead) > 0){ // 0x4 End-of-Transmission
             buffer.Add(bytesRead[0]); // 192.168.191.246
+            if(bytesRead[0] == 0x4) break;
             Console.WriteLine($"read {bytesRead[0]}");
         }
         Console.WriteLine("finished read" + buffer.Count.ToString());
