@@ -459,9 +459,12 @@ public class TryReadMessage : ICommand
         var connected = IoC.Get<Socket>("Connected");
         var buffer = new List<byte>();
         var bytesRead = new byte[1];
+        
+        connected.Blocking = true;
         while(connected.Receive(bytesRead) > 0){
             buffer.Add(bytesRead[0]);
         }
+        connected.Blocking = false;
         
         if(buffer.Count == 0) return;
 
