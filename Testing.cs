@@ -24,7 +24,25 @@ public class DefaultInit : ICommand
         var welcome = @"Welcome to chatter v0.1! Type ""/help"" to list all commands" + "\n";
 
         var commands = new Dictionary<string, Action<string[]>>(){
-            {"connect", (argscmd) => {throw new NotImplementedException();}},
+            {"connect", (argscmd) => {
+                try{
+                    string ip, port;
+                    if(argscmd[0].Contains(':')){
+                        string[] ipport = argscmd[0].Split(':');
+                        ip = ipport[0];
+                        port = ipport[1];
+                    }
+                    else{
+                        ip = argscmd[0];
+                        port = "25560";
+                    }
+                    new TryConnect(ip, port).Execute();
+                }
+                catch(IndexOutOfRangeException){
+                    new PrintLineMsg("No argument given\nUsage: connect <ip>[:port]").Execute();
+                }
+                
+            }},
             {"help", (argscmd) => {new PrintLineMsg(helpmsg).Execute();}},
             {"cls", (argscmd) => {new ClearConsole().Execute();}},
             {"exit", (argscmd) => {new StopApp().Execute();}},
@@ -37,7 +55,8 @@ public class DefaultInit : ICommand
                 catch(IndexOutOfRangeException){
                     new PrintLineMsg("No argument given\nUsage: setname <name>").Execute();
                 }
-            }}
+            }},
+            {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
         };
 
         IoC.Set("Welcome message", (object[] args) => welcome);

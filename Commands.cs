@@ -336,18 +336,24 @@ public class StartListeningTcp : ICommand
                         "127.0.0.1"
                     ),
                     new BindAndListenTcp(port), 
-                    new PrintMsg("Listening at "),
-                    new PrintFromIoC("Input.input"), 
-                    new PrintMsg($":{port}\n"),
-                    new PrintFromIoC("Welcome message"),
-                    new StartCmdListener()
+                    new ActionCommand(() => {
+                        q.Add(new MacroCmd(
+                                new PrintMsg("Listening at "),
+                                new PrintFromIoC("IP"), 
+                                new PrintMsg($":{port}\n"),
+                                new PrintFromIoC("Welcome message"),
+                                new StartCmdListener(),
+                                new AwaitOneClient()
+                            )
+                        );
+                        }
+                    )
                 ),
                 new MacroCmd(
                     new NullifyIoCVar("input"),
                     new StartListeningTcp(this.port)
                 )
             )
-            
             )
         );
     }
@@ -408,8 +414,10 @@ public class BindAndListenTcp : ICommand
     public void Execute()
     {
         Socket server = IoC.Get<Socket>("TCP server");
+        IPAddress ip = IPAddress.Parse(IoC.Get<string>("Input.input"));
+        IoC.Set("IP", (object[] args) => ip.ToString());
         server.Blocking = false;
-        server.Bind(new IPEndPoint(IPAddress.Parse(IoC.Get<string>("Input.input")), port));
+        server.Bind(new IPEndPoint(ip, port));
         server.Listen(1);
     }
 }
@@ -420,23 +428,45 @@ public class TryAcceptOneClient : ICommand
     {
         Socket server = IoC.Get<Socket>("TCP server");
         Socket client = server.Accept();
-
         IoC.Set("TCP client", (object[] args) => {return client;});
     }
 }
 
 public class AwaitOneClient : ICommand
 {
+    private static ICommand macro = new MacroCmd(
+        new TryAcceptOneClient(),
+        new StopRepeating("Awaut.Client"),
+        new ClearConsole(),
+        new ActionCommand(() => {new PrintLineMsg(((IPEndPoint)IoC.Get<Socket>("TCP client").RemoteEndPoint!).Address.ToString() + " connected");})
+    );
+
     public void Execute()
     {
-        new TryAcceptOneClient().Execute();
-        new ClearConsole().Execute();
-        new PrintLineMsg(((IPEndPoint)IoC.Get<Socket>("TCP client").RemoteEndPoint!).Address.ToString() + " connected").Execute();
+        new StartRepeating("Awaut.Client",
+            new ExecuteOnException(macro, new ActionCommand(() => {}), typeof(SocketException))
+        ).Execute();
     }
 }
 
 public class TryConnect : ICommand
 {
+    IPAddress ip;
+    int port;
+
+    public TryConnect(string ip, int port = 25560){
+        this.ip = IPAddress.Parse(ip);
+        this.port = port;
+    }
+    public TryConnect(IPAddress ip, int port = 25560){
+        this.ip = ip;
+        this.port = port;
+    }
+    public TryConnect(string ip, string port){
+        this.ip = IPAddress.Parse(ip);
+        this.port = int.Parse(port);
+    }
+
     public void Execute()
     {
         throw new NotImplementedException();
