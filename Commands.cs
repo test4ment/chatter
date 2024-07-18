@@ -448,17 +448,16 @@ public class InitMessagingState : ICommand
 
 public class TryReadMessage : ICommand
 {
-    public void Execute()
+    public async void Execute()
     {
         var connected = IoC.Get<Socket>("Connected");
         var buffer = new List<byte>();
         var bytesRead = new byte[1];
         
-        connected.Blocking = true;
-        while(connected.Receive(bytesRead) > 0){
-            buffer.Add(bytesRead[0]);
+        while(await connected.ReceiveAsync(bytesRead) > 0){
+            Console.WriteLine("read");
+            buffer.Add(bytesRead[0]); // 192.168.191.246
         }
-        connected.Blocking = false;
         
         if(buffer.Count == 0) return;
 
@@ -583,5 +582,3 @@ public class HandleOneCommand : ICommand
         IoC.Get<ICommand>("Commands.Handler", IoC.Get<string>("Input.input")).Execute();
     }
 }
-
-
