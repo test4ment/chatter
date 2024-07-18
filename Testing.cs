@@ -1,3 +1,5 @@
+using System.Text;
+
 public class TestingProcedure : ICommand {
     public void Execute(){
         new PrintLineMsg("Hello world!").Execute();
@@ -14,7 +16,7 @@ public class DefaultInit : ICommand
     public void Execute()
     {
         var helpmsg = "help \t\t\t show this message \n" +
-        "connect <ip>[:port] \t not implemented yet \n" +
+        "connect <ip>[:port] \t connect to someone \n" +
         "cls \t\t\t clear screen \n" +
         "exit \t\t\t close app \n" +
         "whoami \t\t\t get username \n" +
@@ -59,6 +61,9 @@ public class DefaultInit : ICommand
             {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
         };
 
+        var encoding = Encoding.UTF8;
+        IoC.Set("Encoding", (object[] args) => encoding);
+
         IoC.Set("Welcome message", (object[] args) => welcome);
 
         IoC.Set("stdout writer", (object[] args) => {
@@ -81,10 +86,15 @@ public class DefaultInit : ICommand
 
         ExceptionHandler.SetHandler(typeof(RepeatCommand), typeof(NullReferenceException), (a, b) => {});
 
+        IoC.Set("Message.Handler", (object[] args) => {
+            // var mess = (string)args[0];
+            return new ActionCommand(() => {});
+        });
+
         IoC.Set("Commands.Handler", (object[] args) => {
             string cmd = (string)args[0];
 
-            if(cmd.Length < 2 || cmd[0] != '/') return new ActionCommand(() => {});
+            if(cmd.Length < 2 || cmd[0] != '/') return IoC.Get<ICommand>("Message.Handler", cmd);
             
             cmd = cmd[1..];
             

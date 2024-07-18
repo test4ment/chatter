@@ -1,3 +1,5 @@
+using System.Text;
+
 public interface ICommand {
     public void Execute();
 }
@@ -432,13 +434,101 @@ public class TryAcceptOneClient : ICommand
     }
 }
 
+public class InitMessagingState : ICommand
+{
+    public InitMessagingState()
+    {
+    }
+
+    public void Execute()
+    {
+        IoC.Set("Message.Handler", (object[] args) => {
+            var mess = (string)args[0];
+            return new SendMessage(mess);
+        });
+
+        // IoC.Get<BlockingCollection<ICommand>>("Queue");
+    }
+}
+
+public class TryReadMessage : ICommand
+{
+    public void Execute()
+    {
+        var connected = IoC.Get<Socket>("Connected");
+        var buffer = new List<byte>();
+        var bytesRead = new byte[1];
+        while(connected.Receive(bytesRead) > 0){
+            buffer.Add(bytesRead[0]);
+        }
+        
+        if(buffer.Count == 0) return;
+
+        var encoding = IoC.Get<Encoding>("Encoding");
+
+        IoC.Get<BlockingCollection<ICommand>>("Queue").Add(
+            new PrintLineMsg(encoding.GetString(buffer.ToArray()))
+        );
+    }
+}
+
+public class StartMessageListener : ICommand
+{
+    public void Execute()
+    {
+        IoC.Get<BlockingCollection<ICommand>>("Queue").Add(
+            new StartRepeating("Msg.Listener", new TryReadMessage())
+        );
+    }
+}
+
+public class InitMessagingStateAsServer : ICommand
+{
+    public void Execute()
+    {
+        var connected = IoC.Get<Socket>("TCP client");
+        IoC.Set("Connected", (object[] args) => connected);
+    }
+}
+
+public class SendMessage : ICommand
+{
+    string message;
+    public SendMessage()
+    {
+        this.message = IoC.Get<string>("Input.input");
+    }
+
+    public SendMessage(string message)
+    {
+        this.message = message;
+    }
+
+    public void Execute()
+    {
+        var encoding = IoC.Get<Encoding>("Encoding");
+        IoC.Get<Socket>("Connected").Send(encoding.GetBytes(message));
+    }
+}
+
+public class MessagingStateCommand : ICommand
+{
+    public void Execute()
+    {
+        new InitMessagingState().Execute();
+        new StartMessageListener().Execute();
+    }
+}
+
 public class AwaitOneClient : ICommand
 {
     private static ICommand macro = new MacroCmd(
         new TryAcceptOneClient(),
         new StopRepeating("Awaut.Client"),
         new ClearConsole(),
-        new ActionCommand(() => {new PrintLineMsg(((IPEndPoint)IoC.Get<Socket>("TCP client").RemoteEndPoint!).Address.ToString() + " connected");})
+        new ActionCommand(() => {new PrintLineMsg(((IPEndPoint)IoC.Get<Socket>("TCP client").RemoteEndPoint!).Address.ToString() + " connected").Execute();}),
+        new InitMessagingStateAsServer(),
+        new MessagingStateCommand()
     );
 
     public void Execute()
@@ -469,7 +559,14 @@ public class TryConnect : ICommand
 
     public void Execute()
     {
-        throw new NotImplementedException();
+        Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+        {
+            Blocking = false
+        };
+        client.Connect(this.ip, this.port);
+        IoC.Set("Connected", (object[] args) => client);
+        new MessagingStateCommand().Execute();
+        new PrintLineMsg("Connected to " + this.ip.ToString()).Execute();
     }
 }
 
