@@ -455,7 +455,6 @@ public class TryReadMessage : ICommand
         var bytesRead = new byte[1];
         
         while(await connected.ReceiveAsync(bytesRead) > 0){
-            Console.WriteLine("read");
             buffer.Add(bytesRead[0]); // 192.168.191.246
         }
         
@@ -463,6 +462,7 @@ public class TryReadMessage : ICommand
 
         var encoding = IoC.Get<Encoding>("Encoding");
 
+        Console.WriteLine("added buf " + encoding.GetString(buffer.ToArray()));
         IoC.Get<BlockingCollection<ICommand>>("Queue").Add(
             new PrintLineMsg(encoding.GetString(buffer.ToArray()))
         );
