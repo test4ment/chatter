@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text;
 
 public interface ICommand {
@@ -563,7 +564,14 @@ public class TryConnect : ICommand
         {
             Blocking = false
         };
-        client.Connect(this.ip, this.port);
+
+        try{
+            client.Connect(this.ip, this.port);
+        }
+        catch(Win32Exception ex){
+            if (ex.ErrorCode == 10035) while (!client.Poll(1000, SelectMode.SelectWrite)){} // WSAEWOULDBLOCK is expected, means connect is in progress 
+        }
+
         IoC.Set("Connected", (object[] args) => client);
         new MessagingStateCommand().Execute();
         new PrintLineMsg("Connected to " + this.ip.ToString()).Execute();
