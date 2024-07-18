@@ -455,11 +455,11 @@ public class TryReadMessage : ICommand
         var bytesRead = new byte[1];
         
         while(await connected.ReceiveAsync(bytesRead) > 0){ // 0x4 End-of-Transmission
-            buffer.Add(bytesRead[0]); // 192.168.191.246
             if(bytesRead[0] == 0x4) break;
-            Console.WriteLine($"read {bytesRead[0]}");
+            buffer.Add(bytesRead[0]); // 192.168.191.246
+            Console.WriteLine($"read {(char)bytesRead[0]}");
         }
-        Console.WriteLine("finished read" + buffer.Count.ToString());
+        Console.WriteLine("finished read; buffer len: " + buffer.Count.ToString());
         
         if(buffer.Count == 0) return;
         Console.WriteLine("passed return");
