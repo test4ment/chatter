@@ -458,7 +458,7 @@ public class TryReadMessage : ICommand
             Console.WriteLine("read");
             buffer.Add(bytesRead[0]); // 192.168.191.246
         }
-        Console.WriteLine("finished read", buffer.Count);
+        Console.WriteLine("finished read" + buffer.Count.ToString());
         
         if(buffer.Count == 0) return;
         Console.WriteLine("passed return");
