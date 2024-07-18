@@ -454,7 +454,7 @@ public class TryReadMessage : ICommand
         var buffer = new List<byte>();
         var bytesRead = new byte[1];
         
-        while(await connected.ReceiveAsync(bytesRead) > 0){
+        while(await connected.ReceiveAsync(bytesRead) > 0 && bytesRead[0] != 0x4){ // 0x4 End-of-Transmission
             Console.WriteLine("read");
             buffer.Add(bytesRead[0]); // 192.168.191.246
         }
@@ -506,6 +506,7 @@ public class SendMessage : ICommand
 
     public void Execute()
     {
+        message += (char)0x4; // 0x4 End-of-Transmission
         var encoding = IoC.Get<Encoding>("Encoding");
         IoC.Get<Socket>("Connected").Send(encoding.GetBytes(message));
     }
