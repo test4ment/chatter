@@ -117,10 +117,10 @@ public class HelloUser : ICommand
 {
     public void Execute()
     {
-        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-        q.Add(new PrintLineMsg("Hello user! Write your name:"));
-        q.Add(new StartInputListener("input"));
-        q.Add(new AwaitIoCVar("input", new MacroCmd(new RememberUsername(), new GreetUser(), new StartServer())));
+        var q = IoC.Get<Queue<ICommand>>("Queue");
+        q.Enqueue(new PrintLineMsg("Hello user! Write your name:"));
+        q.Enqueue(new StartInputListener("input"));
+        q.Enqueue(new AwaitIoCVar("input", new MacroCmd(new RememberUsername(), new GreetUser(), new StartServer())));
     }
 }
 
@@ -128,9 +128,9 @@ public class StartServer : ICommand
 {
     public void Execute()
     {
-        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
+        var q = IoC.Get<Queue<ICommand>>("Queue");
 
-        q.Add(new RegisterTcp());
-        q.Add(new StartListeningTcp());
+        q.Enqueue(new RegisterTcp());
+        q.Enqueue(new StartListeningTcp());
     }
 }

@@ -5,9 +5,16 @@ global using System.Net;
 global using System.Net.Sockets;
 
 BlockingCollection<ICommand> queue = new();
-IoC.Set("Queue", (object[] args) => {return queue;});
+Queue<ICommand> queuePlanner = new();
 
+var planner = new Planner(queuePlanner);
+
+IoC.Set("Planner", (object[] args) => planner);
+IoC.Set("MainQueue", (object[] args) => {return queue;});
+IoC.Set("Queue", (object[] args) => {return queuePlanner;});
 IoC.Set("IsRunning", (object[] args) => {return true;});
+
+new Thread(planner.Start).Start();
 
 queue.Add(new DefaultInit());
 // queue.Add(new TestingProcedure());

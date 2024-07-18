@@ -53,7 +53,7 @@ public class StartInputListener : ICommand
 
     public void Execute()
     {
-        new StartRepeating("Listener." + var_to_write, new TryWriteStdIn(var_to_write, on_success)).Execute();
+        new StartRepeating("Listener." + var_to_write, new TryWriteStdIn(var_to_write, on_success), Priority.RealTime).Execute();
     }
 }
 
@@ -184,14 +184,14 @@ public class HandleExceptionCmd : ICommand{
 public class StartCmdListener : ICommand{
     public void Execute()
     {
-        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-        var createmyself = new ActionCommand(() => {q.Add(new StartCmdListener());});
+        var q = IoC.Get<Queue<ICommand>>("Queue");
+        var createmyself = new ActionCommand(() => {q.Enqueue(new StartCmdListener());});
         var cmd = new MacroCmd(
             new HandleOneCommand(),
             createmyself
         );
         
-        q.Add(new AwaitIoCVar("input", new ExecuteOnException(
+        q.Enqueue(new AwaitIoCVar("input", new ExecuteOnException(
             cmd,
             new MacroCmd(
                 // new PrintLineMsg("An exception occured!"),
@@ -220,15 +220,20 @@ public class UserInputStdIn : ICommand{
 
 public class RepeatCommand : ICommand{
     private string cmd_dep;
+    private Priority priority;
     
-    public RepeatCommand(string cmd_dep){
+    public RepeatCommand(string cmd_dep, Priority priority){
         this.cmd_dep = cmd_dep;
+        this.priority = priority;
     }
 
     public void Execute(){
         IoC.Get<ICommand>(cmd_dep).Execute();
         // queue.Add(new ContiniousCommand(cmd, queue));
-        IoC.Get<BlockingCollection<ICommand>>("Queue").Add(new RepeatCommand(cmd_dep));
+
+        // IoC.Get<BlockingCollection<ICommand>>("Queue").Add(new RepeatCommand(cmd_dep));
+        // IoC.Get<Queue<ICommand>>("Queue").Add(new RepeatCommand(cmd_dep));
+        IoC.Get<Planner>("Planner").repeaters![(byte)priority].Enqueue(new RepeatCommand(cmd_dep, priority));
     }
 }
 
@@ -236,10 +241,12 @@ public class StartRepeating : ICommand
 {
     private string dep_name;
     private ICommand cmd;
-    public StartRepeating(string dep_name, ICommand cmd)
+    private Priority priorty;
+    public StartRepeating(string dep_name, ICommand cmd, Priority priority = Priority.Normal)
     {
         this.dep_name = dep_name;
         this.cmd = cmd;
+        this.priorty = priority;
     }
 
     public void Execute()
@@ -247,7 +254,7 @@ public class StartRepeating : ICommand
         var dep = "Repeat." + dep_name;
         cmd.Execute();
         IoC.Set(dep, (object[] args) => {return cmd;});
-        new RepeatCommand(dep).Execute();
+        new RepeatCommand(dep, priorty).Execute();
     }
 }
 
@@ -325,10 +332,10 @@ public class StartListeningTcp : ICommand
     }
     public void Execute()
     {
-        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
+        var q = IoC.Get<Queue<ICommand>>("Queue");
 
-        q.Add(new PrintLineMsg("Write local machine IP to listen connections (leave empty for localhost)"));
-        q.Add(new AwaitIoCVar(
+        q.Enqueue(new PrintLineMsg("Write local machine IP to listen connections (leave empty for localhost)"));
+        q.Enqueue(new AwaitIoCVar(
             "input",
             new ExecuteOnException(
                 new MacroCmd(
@@ -340,7 +347,7 @@ public class StartListeningTcp : ICommand
                     ),
                     new BindAndListenTcp(port), 
                     new ActionCommand(() => {
-                        q.Add(new MacroCmd(
+                        q.Enqueue(new MacroCmd(
                                 new PrintMsg("Listening at "),
                                 new PrintFromIoC("IP"), 
                                 new PrintMsg($":{port}\n"),
@@ -447,8 +454,6 @@ public class InitMessagingState : ICommand
             var mess = (string)args[0];
             return new SendMessage(mess);
         });
-
-        // IoC.Get<BlockingCollection<ICommand>>("Queue");
     }
 }
 
@@ -470,7 +475,7 @@ public class TryReadMessage : ICommand
 
         var encoding = IoC.Get<Encoding>("Encoding");
 
-        IoC.Get<BlockingCollection<ICommand>>("Queue").Add(
+        IoC.Get<Queue<ICommand>>("Queue").Enqueue(
             new PrintLineMsg(encoding.GetString(buffer.ToArray()))
         );
     }
@@ -480,7 +485,7 @@ public class StartMessageListener : ICommand
 {
     public void Execute()
     {
-        IoC.Get<BlockingCollection<ICommand>>("Queue").Add(
+        IoC.Get<Queue<ICommand>>("Queue").Enqueue(
             new StartRepeating("Msg.Listener", new TryReadMessage())
         );
     }
