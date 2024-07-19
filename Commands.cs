@@ -640,7 +640,7 @@ public class TryConnect : ICommand
         IoC.Set("Connected", (object[] args) => client);
 
         new SendClientInfo().Execute(); // design flaw?
-        new ReceiveClientInfo().Execute(); //
+        new ReceiveClientInfo().Execute(); // awaits momentally
         new MessagingStateCommand().Execute();
         new PrintLineMsg(
             "Connected to " + 
@@ -679,6 +679,7 @@ public class ReceiveClientInfo : ICommand
 {
     public void Execute()
     {
+        Thread.Sleep(100); // make method to synchronously read message
         new TryReadMessage(
             (mess) => {
                 var infoJson = JsonObject.Parse(mess);
