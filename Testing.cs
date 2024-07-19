@@ -142,8 +142,6 @@ public class DefaultInit : ICommand
             );
         }
         );
-
-        // Info.Username
     }
 }
 
