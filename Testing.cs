@@ -80,14 +80,15 @@ public class DefaultInit : ICommand
             {"whoami", (argscmd) => {new PrintMyName().Execute();}},
             {"setname", (argscmd) => {
                 try{
-                    var name = argscmd[0];
-                    IoC.Set("Username", (object[] args) => name);
+                    var name = string.Join(' ', argscmd);
+                    if(name.Length == 0) throw new IndexOutOfRangeException();
+                    IoC.Set("Info.Username", (object[] args) => name);
                 }
                 catch(IndexOutOfRangeException){
                     new PrintLineMsg("No argument given\nUsage: setname <name>").Execute();
                 }
             }},
-            {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
+            // {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
         };
 
         var encoding = Encoding.UTF8;
