@@ -275,10 +275,15 @@ public class StopRepeating : ICommand
 
 public class ActionCommand : ICommand
 {
-    Action action;
+    private Action action;
     public ActionCommand(Action action)
     {
         this.action = action;
+    }
+
+    public ActionCommand()
+    {
+        this.action = () => {};
     }
 
     public void Execute()
@@ -656,7 +661,7 @@ public class HandleOneCommand : ICommand
 
 public class SendClientInfo : ICommand
 {
-    public void Execute()
+    public async void Execute()
     {
         var connected = IoC.Get<Socket>("Connected"); // unify all connected actions
         var encoder = IoC.Get<Encoding>("Encoding");
@@ -666,7 +671,7 @@ public class SendClientInfo : ICommand
             { "Username", IoC.Get<string>("Info.Username") } // get from storage
         };
 
-        connected.Send(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
+        await connected.SendAsync(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
     }
 }
 
