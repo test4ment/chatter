@@ -631,8 +631,8 @@ public class TryConnect : ICommand
         try{
             client.Connect(this.ip, this.port);
         }
-        catch(Win32Exception ex){
-            if (ex.ErrorCode == 10035) while (!client.Poll(1000, SelectMode.SelectWrite)){} // WSAEWOULDBLOCK is expected, means connect is in progress 
+        catch(SocketException ex){
+            if (ex.SocketErrorCode == SocketError.WouldBlock) while (!client.Poll(1000, SelectMode.SelectWrite)){} // WSAEWOULDBLOCK is expected, means connect is in progress 
             else{
                 throw;
             }
