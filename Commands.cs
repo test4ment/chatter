@@ -661,7 +661,7 @@ public class HandleOneCommand : ICommand
 
 public class SendClientInfo : ICommand
 {
-    public async void Execute()
+    public void Execute()
     {
         var connected = IoC.Get<Socket>("Connected"); // unify all connected actions
         var encoder = IoC.Get<Encoding>("Encoding");
@@ -671,7 +671,7 @@ public class SendClientInfo : ICommand
             { "Username", IoC.Get<string>("Info.Username") } // get from storage
         };
 
-        await connected.SendAsync(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
+        connected.SendAsync(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
     }
 }
 
