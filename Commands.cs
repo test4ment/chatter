@@ -329,7 +329,7 @@ public class RegisterTcp : ICommand{
 public class StartListeningTcp : ICommand
 {
     private int port;
-    public StartListeningTcp(int port = 25560){
+    public StartListeningTcp(int port = 25560){ // unhardcode
         this.port = port;
     }
     public void Execute()
@@ -661,7 +661,7 @@ public class HandleOneCommand : ICommand
 
 public class SendClientInfo : ICommand
 {
-    public void Execute()
+    public async void Execute()
     {
         var connected = IoC.Get<Socket>("Connected"); // unify all connected actions
         var encoder = IoC.Get<Encoding>("Encoding");
@@ -671,14 +671,7 @@ public class SendClientInfo : ICommand
             { "Username", IoC.Get<string>("Info.Username") } // get from storage
         };
 
-        try{
-            connected.Send(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
-        }
-        catch(SocketException ex){
-            Console.WriteLine(ex.ErrorCode);
-            Console.WriteLine(ex.SocketErrorCode);
-            Console.WriteLine(ex.NativeErrorCode);
-        }
+        await connected.SendAsync(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
     }
 }
 
