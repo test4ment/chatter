@@ -29,6 +29,32 @@ public class PrintMsg : ICommand{
     }
 }
 
+public class ColoredExecutionCmd : ICommand
+{
+    private ConsoleColor writeColor;
+    private ICommand cmd;
+    public ColoredExecutionCmd(ICommand cmd, ConsoleColor writeColor)
+    {
+        this.writeColor = writeColor;
+        this.cmd = cmd;
+    }
+
+    public void Execute()
+    {
+        var color = Console.ForegroundColor;
+        Console.ForegroundColor = writeColor;
+        try{
+            cmd.Execute();
+        }
+        catch{
+            throw;
+        }
+        finally{
+            Console.ForegroundColor = color;
+        }
+    }
+}
+
 public class PrintFromIoC : ICommand
 {
     private string dep_name;
@@ -45,6 +71,57 @@ public class PrintFromIoC : ICommand
     }
 }
 
+public class GetAndTryStdInWriterMethod : ICommand
+{
+    private readonly string var_to_write;
+    private readonly ICommand on_success;
+
+    public GetAndTryStdInWriterMethod(string var_to_write, ICommand? on_success = null)
+    {
+        this.var_to_write = var_to_write;
+        this.on_success = on_success ?? new ActionCommand();
+    }
+
+    public void Execute()
+    {
+        IoC.Get<ICommand>("stdin writer", var_to_write, on_success).Execute();
+    }
+}
+
+public class DefaultWriter : ICommand
+{
+    public void Execute()
+    {
+        IoC.Set("stdin writer", (object[] args) => {
+                string var_to_write = (string)args[0];
+                ICommand? on_success = args[1] as ICommand;
+                return new TryWriteStdIn(var_to_write, on_success);
+            }
+        );
+    }
+}
+
+public class WriterWithYou : ICommand
+{
+    public void Execute()
+    {
+        IoC.Set("stdin writer", (object[] args) => {
+                string var_to_write = (string)args[0];
+                ICommand? on_success = args[1] as ICommand;
+                // string name = IoC.Get<string>("Info.Username");
+                return new TryWriteStdIn(
+                    var_to_write, 
+                    on_success,
+                    new ColoredExecutionCmd(
+                        new PrintMsg("you: "),
+                        ConsoleColor.Yellow
+                    )
+                );
+            }
+        );
+    }
+}
+
 public class StartInputListener : ICommand
 {
     string var_to_write;
@@ -57,7 +134,7 @@ public class StartInputListener : ICommand
 
     public void Execute()
     {
-        new StartRepeating("Listener." + var_to_write, new TryWriteStdIn(var_to_write, on_success)).Execute();
+        new StartRepeating("Listener." + var_to_write, new GetAndTryStdInWriterMethod(var_to_write, on_success)).Execute();
     }
 }
 
@@ -79,14 +156,17 @@ public class TryWriteStdIn : ICommand
 {
     private string var_to_write;
     private ICommand? on_success;
-    public TryWriteStdIn(string var_to_write, ICommand? on_success = null){
+    private ICommand? before_input;
+    public TryWriteStdIn(string var_to_write, ICommand? on_success = null, ICommand? before_input = null){
         this.var_to_write = var_to_write;
         this.on_success = on_success;
+        this.before_input = before_input;
     }
 
     public void Execute()
     {
         if (Console.KeyAvailable){
+            before_input?.Execute();
             new UserInputStdIn(var_to_write).Execute();
             on_success?.Execute();
         }
@@ -105,7 +185,6 @@ public class TryReadIoCVar : ICommand
 
     public void Execute()
     {
-        // Console.WriteLine($"Trying to read {var_to_read}");
         try{
             if(IoC.Get<object>(var_to_read) is null) return;
             on_read.Execute();
@@ -230,7 +309,6 @@ public class RepeatCommand : ICommand{
 
     public void Execute(){
         IoC.Get<ICommand>(cmd_dep).Execute();
-        // queue.Add(new ContiniousCommand(cmd, queue));
 
         IoC.Get<BlockingCollection<ICommand>>("Queue").Add(new RepeatCommand(cmd_dep));
     }
@@ -501,6 +579,8 @@ public class InitMessagingState : ICommand
             var mess = (string)args[0];
             return new SendMessage(mess);
         });
+
+        new AddCmdsToQueueCmd(new WriterWithYou()).Execute();
     }
 }
 
@@ -511,7 +591,7 @@ public class TryReadMessage : ICommand
     {
         this.action_on_message = (mess) => {
             new AddCmdsToQueueCmd(
-                new PrintLineMsg(mess) // add datetime, Connected.Username
+                new PrintLineMsgChat(mess) // add datetime, Connected.Username
             ).Execute();
         };
     }
@@ -534,6 +614,32 @@ public class TryReadMessage : ICommand
         string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
 
         action_on_message(message); // Redo with ICommand
+    }
+}
+
+public class PrintLineMsgChat: ICommand
+{
+    private string mess;
+
+    public PrintLineMsgChat(string mess)
+    {
+        this.mess = mess;
+    }
+
+    public void Execute()
+    {
+        var name = IoC.Get<string>("Connected.Username");
+        var timestamp = TimeOnly.FromDateTime(DateTime.Now).ToShortTimeString();
+
+        new ColoredExecutionCmd(
+            new PrintMsg(timestamp + " "),
+            ConsoleColor.DarkGray
+        ).Execute();
+        new ColoredExecutionCmd(
+            new PrintMsg(name + ": "),
+            ConsoleColor.Yellow
+        ).Execute();
+        new PrintLineMsg(mess).Execute();
     }
 }
 

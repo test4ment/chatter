@@ -104,6 +104,8 @@ public class DefaultInit : ICommand
             return new StdOutPrintAdapter();
         });
 
+        new DefaultWriter().Execute();
+
         IoC.Set("Exception.Handler", (object[] args) => {
             return new HandleExceptionCmd((ICommand)args[0], (Exception)args[1]);
         });
