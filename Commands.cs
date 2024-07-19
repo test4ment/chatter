@@ -637,6 +637,13 @@ public class TryConnect : ICommand
                 throw;
             }
         }
+
+        while (!client.Poll(1000, SelectMode.SelectWrite)){}
+        
+        if(!client.Poll(1000, SelectMode.SelectWrite)){
+            throw new Exception("Cant connet to server");
+        }
+
         IoC.Set("Connected", (object[] args) => client);
 
         new SendClientInfo().Execute(); // design flaw?
