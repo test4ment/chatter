@@ -671,7 +671,7 @@ public class SendClientInfo : ICommand
             { "Username", IoC.Get<string>("Info.Username") } // get from storage
         };
 
-        connected.SendAsync(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
+        connected.Send(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
     }
 }
 
