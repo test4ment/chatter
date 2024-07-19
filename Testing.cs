@@ -11,6 +11,35 @@ public class TestingProcedure : ICommand {
     }
 }
 
+public class DebugExHandlerInit : ICommand
+{
+    Action<ICommand, Exception> act;
+    public DebugExHandlerInit(): this(false)
+    {}
+
+    public DebugExHandlerInit(bool stacktrace)
+    {
+        if(stacktrace){
+                act = (cmd, ex) => {
+                Console.WriteLine($"Caught {ex.GetType()} in " + cmd.ToString());
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            };
+        }
+        else{
+                act = (cmd, ex) => {
+                Console.WriteLine($"Caught {ex.GetType()} in " + cmd.ToString());
+                Console.WriteLine(ex.Message);
+            };
+        }
+    }
+
+    public void Execute()
+    {
+        ExceptionHandler.SetDefaultHandler(act);
+    }
+}
+
 public class DefaultInit : ICommand
 {
     public void Execute()
@@ -79,7 +108,7 @@ public class DefaultInit : ICommand
         });
 
         ExceptionHandler.SetDefaultHandler((cmd, ex) => {
-            Console.WriteLine($"Caught {ex.GetType()} in " + cmd.ToString());
+            // Console.WriteLine($"Caught {ex.GetType()} in " + cmd.ToString());
             Console.WriteLine(ex.Message);
             // Console.WriteLine(ex.StackTrace);
         });
@@ -110,6 +139,8 @@ public class DefaultInit : ICommand
             );
         }
         );
+
+        // Info.Username
     }
 }
 

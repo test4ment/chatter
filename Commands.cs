@@ -1,5 +1,9 @@
 using System.ComponentModel;
+using System.Reflection;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 public interface ICommand {
     public void Execute();
@@ -298,7 +302,7 @@ public class RememberUsername : ICommand
     public void Execute()
     {
         var name = IoC.Get<string>("Input.input");
-        IoC.Set("Username", (object[] args) => {return name;});
+        IoC.Set("Info.Username", (object[] args) => {return name;});
     }
 }
 
@@ -306,7 +310,7 @@ public class PrintMyName : ICommand
 {
     public void Execute()
     {
-        new PrintLineMsg($"You are {IoC.Get<string>("Username")}").Execute();
+        new PrintLineMsg($"You are {IoC.Get<string>("Info.Username")}").Execute();
     }
 }
 
@@ -353,6 +357,7 @@ public class StartListeningTcp : ICommand
                     )
                 ),
                 new MacroCmd(
+                    new AddCmdsToQueueCmd(new RethrowLatestExceptionCommand()),
                     new NullifyIoCVar("input"),
                     new StartListeningTcp(this.port)
                 )
@@ -376,6 +381,21 @@ where T: notnull
     public void Execute()
     {
         if(!condition(IoC.Get<T>("Input.input"))) IoC.Set("Input.input", (object[] args) => def);
+    }
+}
+
+public class AddCmdsToQueueCmd : ICommand
+{
+    private ICommand[] cmds;
+    public AddCmdsToQueueCmd(params ICommand[] cmds)
+    {
+        this.cmds = cmds;
+    }
+
+    public void Execute()
+    {
+        var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
+        cmds.ToList().ForEach(q.Add);
     }
 }
 
@@ -408,6 +428,39 @@ public class ExecuteOnException : ICommand
     }
 }
 
+public class RethrowLatestExceptionCommand : ICommand
+{
+    public void Execute()
+    {
+        try{
+            var ex = IoC.Get<Exception>("Latest exception");
+            throw ex;
+        }
+        catch(KeyNotFoundException){}
+    }
+}
+
+public class ThrowNewExceptionCmd : ICommand
+{
+    private Exception ex;
+    public ThrowNewExceptionCmd(Exception ex)
+    {
+        this.ex = ex;
+    }
+    public ThrowNewExceptionCmd(string message){
+        this.ex = new Exception(message);
+    }
+
+    public ThrowNewExceptionCmd(string message, Exception inner_ex){
+        this.ex = new Exception(message, inner_ex);
+    }
+
+    public void Execute()
+    {
+        throw this.ex;
+    }
+}
+
 public class BindAndListenTcp : ICommand
 {
     private int port;
@@ -431,7 +484,7 @@ public class TryAcceptOneClient : ICommand
     {
         Socket server = IoC.Get<Socket>("TCP server");
         Socket client = server.Accept();
-        IoC.Set("TCP client", (object[] args) => {return client;});
+        IoC.Set("Connected", (object[] args) => {return client;});
     }
 }
 
@@ -448,28 +501,34 @@ public class InitMessagingState : ICommand
 
 public class TryReadMessage : ICommand
 {
+    Action<string> action_on_message;
+    public TryReadMessage()
+    {
+        this.action_on_message = (mess) => {
+            new AddCmdsToQueueCmd(
+                new PrintLineMsg(mess) // add datetime, Connected.Username
+            ).Execute();
+        };
+    }
+
+    public TryReadMessage(Action<string> action_on_message){
+        this.action_on_message = action_on_message;
+    }
+
     public async void Execute()
     {
         var connected = IoC.Get<Socket>("Connected");
-        var buffer = new List<byte>();
-        var bytesRead = new byte[1];
+        var bytesRead = new byte[1024];
         
-        while(await connected.ReceiveAsync(bytesRead) > 0){ // 0x4 End-of-Transmission
-            if(bytesRead[0] == 0x4) break;
-            buffer.Add(bytesRead[0]); // 192.168.191.246
-            Console.WriteLine($"read {(char)bytesRead[0]}");
-        }
-        Console.WriteLine("finished read; buffer len: " + buffer.Count.ToString());
-        
-        if(buffer.Count == 0) return;
-        Console.WriteLine("passed return");
+        if(await connected.ReceiveAsync(bytesRead) == 0) return;
+        // else{
+        //     buffer = new List<byte>(bytesRead); // 192.168.191.246 // 0x4 End-of-Transmission
+        // }
 
         var encoding = IoC.Get<Encoding>("Encoding");
+        string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
 
-        Console.WriteLine("added buf " + encoding.GetString(buffer.ToArray()));
-        IoC.Get<BlockingCollection<ICommand>>("Queue").Add(
-            new PrintLineMsg(encoding.GetString(buffer.ToArray()))
-        );
+        action_on_message(message); // Redo with ICommand
     }
 }
 
@@ -483,14 +542,6 @@ public class StartMessageListener : ICommand
     }
 }
 
-public class InitMessagingStateAsServer : ICommand
-{
-    public void Execute()
-    {
-        var connected = IoC.Get<Socket>("TCP client");
-        IoC.Set("Connected", (object[] args) => connected);
-    }
-}
 
 public class SendMessage : ICommand
 {
@@ -526,10 +577,16 @@ public class AwaitOneClient : ICommand
 {
     private static ICommand macro = new MacroCmd(
         new TryAcceptOneClient(),
+        new SendClientInfo(),
+        new ReceiveClientInfo(),
         new StopRepeating("Awaut.Client"),
         new ClearConsole(),
-        new ActionCommand(() => {new PrintLineMsg(((IPEndPoint)IoC.Get<Socket>("TCP client").RemoteEndPoint!).Address.ToString() + " connected").Execute();}),
-        new InitMessagingStateAsServer(),
+        new ActionCommand(() => {
+            new PrintLineMsg(
+                IoC.Get<string>("Connected.Username") + " (" +
+                ((IPEndPoint)IoC.Get<Socket>("Connected").RemoteEndPoint!).Address.ToString() + ") connected"
+            ).Execute();
+        }),
         new MessagingStateCommand()
     );
 
@@ -571,11 +628,20 @@ public class TryConnect : ICommand
         }
         catch(Win32Exception ex){
             if (ex.ErrorCode == 10035) while (!client.Poll(1000, SelectMode.SelectWrite)){} // WSAEWOULDBLOCK is expected, means connect is in progress 
+            else{
+                throw;
+            }
         }
-
         IoC.Set("Connected", (object[] args) => client);
+
+        new SendClientInfo().Execute(); // design flaw?
+        new ReceiveClientInfo().Execute(); //
         new MessagingStateCommand().Execute();
-        new PrintLineMsg("Connected to " + this.ip.ToString()).Execute();
+        new PrintLineMsg(
+            "Connected to " + 
+            IoC.Get<string>("Connected.Username") +
+            $" ({this.ip})"
+        ).Execute();
     }
 }
 
@@ -585,5 +651,37 @@ public class HandleOneCommand : ICommand
     {
         // new AwaitInputOnce("cmd").Execute();
         IoC.Get<ICommand>("Commands.Handler", IoC.Get<string>("Input.input")).Execute();
+    }
+}
+
+public class SendClientInfo : ICommand
+{
+    public void Execute()
+    {
+        var connected = IoC.Get<Socket>("Connected"); // unify all connected actions
+        var encoder = IoC.Get<Encoding>("Encoding");
+
+        var infoJson = new JsonObject
+        {
+            { "Username", IoC.Get<string>("Info.Username") } // get from storage
+        };
+
+        connected.Send(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
+    }
+}
+
+public class ReceiveClientInfo : ICommand
+{
+    public void Execute()
+    {
+        new TryReadMessage(
+            (mess) => {
+                var infoJson = JsonObject.Parse(mess);
+                
+                var res = JsonSerializer.Deserialize<Dictionary<string, string>>(infoJson); // dynamic type?
+
+                res?.ToList().ForEach((kv) => {IoC.Set($"Connected.{kv.Key}", (object[] args) => kv.Value);});
+            }
+        ).Execute();
     }
 }
