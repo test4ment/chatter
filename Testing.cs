@@ -49,7 +49,8 @@ public class DefaultInit : ICommand
         "cls \t\t\t clear screen \n" +
         "exit \t\t\t close app \n" +
         "whoami \t\t\t get username \n" +
-        "setname <name> \t\t set new username \n"
+        "setname <name> \t\t set new username \n" +
+        "encode <string> \t\t debug \n"
         ;
 
         var welcome = @"Welcome to chatter v0.1! Type ""/help"" to list all commands" + "\n";
@@ -88,6 +89,12 @@ public class DefaultInit : ICommand
                     new PrintLineMsg("No argument given\nUsage: setname <name>").Execute();
                 }
             }},
+            {"encode", (argscmd) => {
+                var str = string.Join(' ', argscmd);
+                var encoding = IoC.Get<Encoding>("Encoding");
+                var encstr = encoding.GetBytes(str);
+                encstr.ToList().ForEach((byt) => {Console.Write($"{byt} ");});
+            }}
             // {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
         };
 
