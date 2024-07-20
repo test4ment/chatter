@@ -710,7 +710,7 @@ public class SendMessage : ICommand
         var encoding = IoC.Get<Encoding>("Encoding");
         var mess = encoding.GetBytes(message);
         Console.Write("Sent message: ");
-        mess[..64].ToList().ForEach((byt) => {Console.Write($"{byt} ");});
+        mess.ToList().ForEach((byt) => {Console.Write($"{byt} ");});
         IoC.Get<Socket>("Connected").Send(mess);
     }
 }
