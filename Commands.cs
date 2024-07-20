@@ -822,7 +822,7 @@ public class ReceiveClientInfo : ICommand
 {
     public void Execute()
     {
-        Thread.Sleep(100); // make method to synchronously read message
+        // Thread.Sleep(100); // make method to synchronously read message
         new ForceReadMessage(
             (mess) => {
                 var infoJson = JsonObject.Parse(mess);
