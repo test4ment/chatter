@@ -610,8 +610,9 @@ public class TryReadMessage : ICommand
         // else{
         //     buffer = new List<byte>(bytesRead); // 192.168.191.246 // 0x4 End-of-Transmission
         // }
+        Console.Write("Got message: ");
+        bytesRead[..64].ToList().ForEach((byt) => {Console.Write($"{byt} ");});
 
-        bytesRead.ToList().ForEach((byt) => {Console.Write($"{byt} ");});
         var encoding = IoC.Get<Encoding>("Encoding");
         string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
 
@@ -707,7 +708,10 @@ public class SendMessage : ICommand
     public void Execute()
     {
         var encoding = IoC.Get<Encoding>("Encoding");
-        IoC.Get<Socket>("Connected").Send(encoding.GetBytes(message));
+        var mess = encoding.GetBytes(message);
+        Console.Write("Sent message: ");
+        mess[..64].ToList().ForEach((byt) => {Console.Write($"{byt} ");});
+        IoC.Get<Socket>("Connected").Send(mess);
     }
 }
 
