@@ -830,7 +830,8 @@ public class ReceiveClientInfo : ICommand
                 var res = JsonSerializer.Deserialize<Dictionary<string, string>>(infoJson); // dynamic type?
 
                 res!.ToList().ForEach((kv) => {IoC.Set($"Connected.{kv.Key}", (object[] args) => kv.Value);});
-            }
+            },
+            2000
         ).Execute();
     }
 }
