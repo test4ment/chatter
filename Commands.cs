@@ -634,7 +634,9 @@ public class ForceReadMessage : ICommand
         var waitUntil = DateTime.Now.AddMilliseconds(awaitms);
         
         while(DateTime.Now <= waitUntil){
-            if(await connected.ReceiveAsync(bytesRead) != 0) break;
+            int a = await connected.ReceiveAsync(bytesRead);
+            Console.WriteLine(a);
+            if(a != 0) break;
         }
 
         var encoding = IoC.Get<Encoding>("Encoding");
@@ -717,9 +719,8 @@ public class AwaitOneClient : ICommand
         new TryAcceptOneClient(),
         new SendClientInfo(),
         new ReceiveClientInfo(),
-        new PrintLineMsg("received info"),
         new StopRepeating("Await.Client"),
-        new ClearConsole(),
+        // new ClearConsole(),
         new ActionCommand(() => {
             new PrintLineMsg(
                 IoC.Get<string>("Connected.Username") + " (" +
