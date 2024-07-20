@@ -777,7 +777,17 @@ public class SendClientInfo : ICommand
             { "Username", IoC.Get<string>("Info.Username") } // get from storage
         };
 
-        connected.Send(encoder.GetBytes(JsonSerializer.Serialize(infoJson)));
+        var bytes = encoder.GetBytes(JsonSerializer.Serialize(infoJson));
+        var waitUntil = DateTime.Now.AddMilliseconds(300);
+        while(DateTime.Now <= waitUntil){
+            try{
+                if(connected.Send(bytes) != 0) break;
+            }
+            catch(SocketException e){
+                Console.WriteLine(e.Message);
+            }
+        }; 
+        // connected.Send(bytes);
     }
 }
 
