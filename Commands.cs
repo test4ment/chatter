@@ -584,6 +584,7 @@ public class InitMessagingState : ICommand
     }
 }
 
+[Obsolete("Use ForceReadMessage")]
 public class TryReadMessage : ICommand
 {
     private Action<string> action_on_message;
@@ -610,6 +611,7 @@ public class TryReadMessage : ICommand
         //     buffer = new List<byte>(bytesRead); // 192.168.191.246 // 0x4 End-of-Transmission
         // }
 
+        bytesRead.ToList().ForEach((byt) => {Console.Write($"{byt} ");});
         var encoding = IoC.Get<Encoding>("Encoding");
         string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
 
@@ -621,7 +623,7 @@ public class ForceReadMessage : ICommand
 {
     private Action<string> action_on_message;
     private long awaitms;
-    public ForceReadMessage(Action<string> action_on_message, long awaitms = 300)
+    public ForceReadMessage(Action<string> action_on_message, long awaitms = 50)
     {
         this.action_on_message = action_on_message;
         this.awaitms = awaitms;
@@ -632,20 +634,17 @@ public class ForceReadMessage : ICommand
         var connected = IoC.Get<Socket>("Connected");
         var bytesRead = new byte[1024];
         var waitUntil = DateTime.Now.AddMilliseconds(awaitms);
-        int a = 0;
 
         while (DateTime.Now <= waitUntil)
         {
             try
             {
-                a = connected.Receive(bytesRead);
+                if (connected.Receive(bytesRead) != 0) break;
             }
             catch (SocketException e)
             {
-                Console.WriteLine(e.Message);
+                if(e.SocketErrorCode != SocketError.WouldBlock) throw;
             }
-            Console.WriteLine(a);
-            if (a != 0) break;
         }
 
         var encoding = IoC.Get<Encoding>("Encoding");
@@ -707,7 +706,6 @@ public class SendMessage : ICommand
 
     public void Execute()
     {
-        message += (char)0x4; // 0x4 End-of-Transmission
         var encoding = IoC.Get<Encoding>("Encoding");
         IoC.Get<Socket>("Connected").Send(encoding.GetBytes(message));
     }
@@ -833,7 +831,6 @@ public class ReceiveClientInfo : ICommand
 {
     public void Execute()
     {
-        // Thread.Sleep(100); // make method to synchronously read message
         new ForceReadMessage(
             (mess) => {
                 var infoJson = JsonObject.Parse(mess);
@@ -842,7 +839,7 @@ public class ReceiveClientInfo : ICommand
 
                 res!.ToList().ForEach((kv) => {IoC.Set($"Connected.{kv.Key}", (object[] args) => kv.Value);});
             },
-            2000
+            200
         ).Execute();
     }
 }
