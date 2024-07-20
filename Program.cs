@@ -10,7 +10,7 @@ IoC.Set("Queue", (object[] args) => {return queue;});
 IoC.Set("IsRunning", (object[] args) => {return true;});
 
 queue.Add(new DefaultInit());
-queue.Add(new DebugExHandlerInit());
+queue.Add(new DebugExHandlerInit(true));
 // queue.Add(new TestingProcedure());
 queue.Add(new HelloUser());
 // queue.Add(new StopApp());

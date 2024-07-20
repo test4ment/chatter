@@ -717,6 +717,7 @@ public class AwaitOneClient : ICommand
         new TryAcceptOneClient(),
         new SendClientInfo(),
         new ReceiveClientInfo(),
+        new PrintLineMsg("received info"),
         new StopRepeating("Await.Client"),
         new ClearConsole(),
         new ActionCommand(() => {
