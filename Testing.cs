@@ -99,7 +99,8 @@ public class DefaultInit : ICommand
             // {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
         };
 
-        var encoding = Encoding.UTF8;
+        var encoding = Encoding.Unicode;
+
         IoC.Set("Encoding", (object[] args) => encoding);
 
         IoC.Set("Welcome message", (object[] args) => welcome);
