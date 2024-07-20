@@ -738,7 +738,7 @@ public class TryConnect : ICommand
             client.Connect(this.ip, this.port);
         }
         catch(SocketException ex){
-            if (ex.SocketErrorCode == SocketError.WouldBlock) while (!client.Poll(1000, SelectMode.SelectWrite)){} // WSAEWOULDBLOCK is expected, means connect is in progress 
+            if (ex.SocketErrorCode == SocketError.WouldBlock) while (!client.Poll(10000, SelectMode.SelectWrite)){} // WSAEWOULDBLOCK is expected, means connect is in progress 
             else{
                 throw;
             }
@@ -802,7 +802,7 @@ public class ReceiveClientInfo : ICommand
                 
                 var res = JsonSerializer.Deserialize<Dictionary<string, string>>(infoJson); // dynamic type?
 
-                res?.ToList().ForEach((kv) => {IoC.Set($"Connected.{kv.Key}", (object[] args) => kv.Value);});
+                res!.ToList().ForEach((kv) => {IoC.Set($"Connected.{kv.Key}", (object[] args) => kv.Value);});
             }
         ).Execute();
     }
