@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -287,6 +288,21 @@ public class StartCmdListener : ICommand{
     }
 }
 
+public static class StdInHandle{
+    public delegate string? ReadLine();
+    public static ReadLine readMethod {get; private set;}
+
+    static StdInHandle(){
+        if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)){
+            readMethod = UnicodeReader.ReadLine;
+        }
+        else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux)){
+            readMethod = Console.ReadLine;
+        }
+        else throw new Exception($"{RuntimeInformation.OSDescription} is not supported");
+    }
+}
+
 public class UserInputStdIn : ICommand{
     private string global_varname;
 
@@ -295,7 +311,7 @@ public class UserInputStdIn : ICommand{
     }
 
     public void Execute(){
-        var input = Console.ReadLine();
+        var input = StdInHandle.readMethod();
         input ??= "";
         IoC.Set("Input." + global_varname, (object[] args) => {return input;});
     }

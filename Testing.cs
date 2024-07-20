@@ -1,5 +1,3 @@
-using System.Text;
-
 public class TestingProcedure : ICommand {
     public void Execute(){
         new PrintLineMsg("Hello world!").Execute();
@@ -96,10 +94,12 @@ public class DefaultInit : ICommand
                 encstr.ToList().ForEach((byt) => {Console.Write($"{byt} ");});
                 Console.WriteLine();
             }}
-            // {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
         };
 
-        var encoding = Encoding.UTF8;
+        var encoding = Encoding.UTF8; // have to be UTF-16, not UTF-8
+        
+        // Console.InputEncoding = encoding; // fixes on win
+        // Console.OutputEncoding = encoding;
 
         IoC.Set("Encoding", (object[] args) => encoding);
 
