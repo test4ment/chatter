@@ -627,16 +627,25 @@ public class ForceReadMessage : ICommand
         this.awaitms = awaitms;
     }
 
-    public async void Execute()
+    public void Execute()
     {
         var connected = IoC.Get<Socket>("Connected");
         var bytesRead = new byte[1024];
         var waitUntil = DateTime.Now.AddMilliseconds(awaitms);
-        
-        while(DateTime.Now <= waitUntil){
-            int a = await connected.ReceiveAsync(bytesRead);
+        int a = 0;
+
+        while (DateTime.Now <= waitUntil)
+        {
+            try
+            {
+                a = connected.Receive(bytesRead);
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine(e.Message);
+            }
             Console.WriteLine(a);
-            if(a != 0) break;
+            if (a != 0) break;
         }
 
         var encoding = IoC.Get<Encoding>("Encoding");
@@ -720,7 +729,7 @@ public class AwaitOneClient : ICommand
         new SendClientInfo(),
         new ReceiveClientInfo(),
         new StopRepeating("Await.Client"),
-        // new ClearConsole(),
+        new ClearConsole(),
         new ActionCommand(() => {
             new PrintLineMsg(
                 IoC.Get<string>("Connected.Username") + " (" +
