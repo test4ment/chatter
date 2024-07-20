@@ -94,6 +94,7 @@ public class DefaultInit : ICommand
                 var encoding = IoC.Get<Encoding>("Encoding");
                 var encstr = encoding.GetBytes(str);
                 encstr.ToList().ForEach((byt) => {Console.Write($"{byt} ");});
+                Console.WriteLine();
             }}
             // {"accept", (argscmd) => {new TryAcceptOneClient().Execute();}}
         };
