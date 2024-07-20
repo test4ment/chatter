@@ -620,14 +620,27 @@ public class TryReadMessage : ICommand
 public class ForceReadMessage : ICommand
 {
     private Action<string> action_on_message;
-    public ForceReadMessage(Action<string> action_on_message)
+    private long awaitms;
+    public ForceReadMessage(Action<string> action_on_message, long awaitms = 300)
     {
         this.action_on_message = action_on_message;
+        this.awaitms = awaitms;
     }
 
-    public void Execute()
+    public async void Execute()
     {
-        throw new NotImplementedException();
+        var connected = IoC.Get<Socket>("Connected");
+        var bytesRead = new byte[1024];
+        var waitUntil = DateTime.Now.AddMilliseconds(awaitms);
+        
+        while(DateTime.Now <= waitUntil){
+            if(await connected.ReceiveAsync(bytesRead) != 0) break;
+        }
+
+        var encoding = IoC.Get<Encoding>("Encoding");
+        string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
+
+        action_on_message(message);
     }
 }
 
@@ -793,7 +806,7 @@ public class SendClientInfo : ICommand
 
         var bytes = encoder.GetBytes(JsonSerializer.Serialize(infoJson));
         var waitUntil = DateTime.Now.AddMilliseconds(300);
-        while(DateTime.Now <= waitUntil){
+        while(DateTime.Now <= waitUntil){ // lin
             try{
                 if(connected.Send(bytes) != 0) break;
             }
@@ -801,7 +814,7 @@ public class SendClientInfo : ICommand
                 Console.WriteLine(e.Message);
             }
         }; 
-        // connected.Send(bytes);
+        // connected.Send(bytes); // win
     }
 }
 
@@ -810,7 +823,7 @@ public class ReceiveClientInfo : ICommand
     public void Execute()
     {
         Thread.Sleep(100); // make method to synchronously read message
-        new TryReadMessage(
+        new ForceReadMessage(
             (mess) => {
                 var infoJson = JsonObject.Parse(mess);
                 
