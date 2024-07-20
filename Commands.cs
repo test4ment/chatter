@@ -586,7 +586,7 @@ public class InitMessagingState : ICommand
 
 public class TryReadMessage : ICommand
 {
-    Action<string> action_on_message;
+    private Action<string> action_on_message;
     public TryReadMessage()
     {
         this.action_on_message = (mess) => {
@@ -614,6 +614,20 @@ public class TryReadMessage : ICommand
         string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
 
         action_on_message(message); // Redo with ICommand
+    }
+}
+
+public class ForceReadMessage : ICommand
+{
+    private Action<string> action_on_message;
+    public ForceReadMessage(Action<string> action_on_message)
+    {
+        this.action_on_message = action_on_message;
+    }
+
+    public void Execute()
+    {
+        throw new NotImplementedException();
     }
 }
 
@@ -690,7 +704,7 @@ public class AwaitOneClient : ICommand
         new TryAcceptOneClient(),
         new SendClientInfo(),
         new ReceiveClientInfo(),
-        new StopRepeating("Awaut.Client"),
+        new StopRepeating("Await.Client"),
         new ClearConsole(),
         new ActionCommand(() => {
             new PrintLineMsg(
@@ -703,7 +717,7 @@ public class AwaitOneClient : ICommand
 
     public void Execute()
     {
-        new StartRepeating("Awaut.Client",
+        new StartRepeating("Await.Client",
             new ExecuteOnException(macro, new ActionCommand(() => {}), typeof(SocketException))
         ).Execute();
     }
