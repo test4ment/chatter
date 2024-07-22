@@ -596,50 +596,55 @@ public class InitMessagingState : ICommand
             return new SendMessage(mess);
         });
 
+        IoC.Set("Exit.Handler", (object[] args) => {
+            return new DeInitMessagingState();
+        });
+
         new AddCmdsToQueueCmd(new WriterWithYou()).Execute();
     }
 }
 
-[Obsolete("Use ForceReadMessage")]
-public class TryReadMessage : ICommand
+public class DeInitMessagingState : ICommand
 {
-    private Action<string> action_on_message;
-    public TryReadMessage()
+    public void Execute()
     {
-        this.action_on_message = (mess) => {
-            new AddCmdsToQueueCmd(
-                new PrintLineMsgChat(mess) // add datetime, Connected.Username
-            ).Execute();
-        };
-    }
+        using(var connected = IoC.Get<Socket>("Connected")){
+            connected.Disconnect(false);
+        }
 
-    public TryReadMessage(Action<string> action_on_message){
-        this.action_on_message = action_on_message;
-    }
+        IoC.Set("Exit.Handler", (object[] args) => {
+            return new StopApp();
+        });
 
-    public async void Execute()
-    {
-        var connected = IoC.Get<Socket>("Connected");
-        var bytesRead = new byte[1024];
-        
-        if(await connected.ReceiveAsync(bytesRead) == 0) return;
-        // else{
-        //     buffer = new List<byte>(bytesRead); // 192.168.191.246 // 0x4 End-of-Transmission
-        // }
-        var encoding = IoC.Get<Encoding>("Encoding");
-        string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
+        IoC.Set("Message.Handler", (object[] args) => {
+            // var mess = (string)args[0];
+            return new ActionCommand(() => {});
+        });
 
-        action_on_message(message); // Redo with ICommand
+        new AddCmdsToQueueCmd(
+            new NullifyIoCVar("Connected"),
+            new ClearConsole(),
+            new PrintFromIoC("Welcome message")
+        ).Execute();
     }
 }
 
 public class ForceReadMessage : ICommand
 {
     private Action<string> action_on_message;
-    private long awaitms;
-    public ForceReadMessage(Action<string> action_on_message, long awaitms = 50)
+    private int awaitms;
+    public ForceReadMessage(Action<string> action_on_message, int awaitms = 50)
     {
         this.action_on_message = action_on_message;
+        this.awaitms = awaitms;
+    }
+    public ForceReadMessage(int awaitms = 50)
+    {
+        this.action_on_message = (mess) => {
+            new AddCmdsToQueueCmd(
+                new PrintLineMsgChat(mess)
+            ).Execute();
+        };
         this.awaitms = awaitms;
     }
 
@@ -663,8 +668,9 @@ public class ForceReadMessage : ICommand
 
         var encoding = IoC.Get<Encoding>("Encoding");
         string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
+        // string message = (string)encoding.GetString(bytesRead).TakeWhile((ch) => ch != (char)0x0); // utf16 support
 
-        action_on_message(message);
+        action_on_message(message); // Redo with ICommand
     }
 }
 
@@ -699,7 +705,7 @@ public class StartMessageListener : ICommand
     public void Execute()
     {
         IoC.Get<BlockingCollection<ICommand>>("Queue").Add(
-            new StartRepeating("Msg.Listener", new TryReadMessage())
+            new StartRepeating("Msg.Listener", new ForceReadMessage())
         );
     }
 }

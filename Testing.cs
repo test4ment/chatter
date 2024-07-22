@@ -75,7 +75,9 @@ public class DefaultInit : ICommand
             }},
             {"help", (argscmd) => {new PrintLineMsg(helpmsg).Execute();}},
             {"cls", (argscmd) => {new ClearConsole().Execute();}},
-            {"exit", (argscmd) => {new StopApp().Execute();}},
+            {"exit", (argscmd) => {
+                IoC.Get<ICommand>("Exit.Handler").Execute();
+            }},
             {"whoami", (argscmd) => {new PrintMyName().Execute();}},
             {"setname", (argscmd) => {
                 try{
@@ -130,6 +132,10 @@ public class DefaultInit : ICommand
         IoC.Set("Message.Handler", (object[] args) => {
             // var mess = (string)args[0];
             return new ActionCommand(() => {});
+        });
+
+        IoC.Set("Exit.Handler", (object[] args) => {
+            return new StopApp();
         });
 
         IoC.Set("Commands.Handler", (object[] args) => {
