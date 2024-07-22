@@ -658,19 +658,20 @@ public class ForceReadMessage : ICommand
         {
             try
             {
-                if (connected.Receive(bytesRead) != 0) break;
+                if (connected.Receive(bytesRead) != 0){
+                    var encoding = IoC.Get<Encoding>("Encoding");
+                    string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
+                    // string message = (string)encoding.GetString(bytesRead).TakeWhile((ch) => ch != (char)0x0); // utf16 support
+
+                    action_on_message(message); // Redo with ICommand
+                    break;
+                }
             }
             catch (SocketException e)
             {
                 if(e.SocketErrorCode != SocketError.WouldBlock) throw;
             }
         }
-
-        var encoding = IoC.Get<Encoding>("Encoding");
-        string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
-        // string message = (string)encoding.GetString(bytesRead).TakeWhile((ch) => ch != (char)0x0); // utf16 support
-
-        action_on_message(message); // Redo with ICommand
     }
 }
 
