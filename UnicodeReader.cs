@@ -29,8 +29,13 @@ public static class UnicodeReader
         var b = new byte[nc];
         
         for (var i = 0; i < nc; i++)
-            b[i] = buffer[i];
-
+            try{
+                b[i] = buffer[i];
+            }
+            catch(IndexOutOfRangeException){
+                break;
+            }
+            
         var utf8enc = Encoding.UTF8;
         var unicodeenc = Encoding.Unicode;
         return utf8enc.GetString(Encoding.Convert(unicodeenc, utf8enc, b));

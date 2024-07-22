@@ -42,16 +42,17 @@ public class DefaultInit : ICommand
 {
     public void Execute()
     {
-        var helpmsg = "help \t\t\t show this message \n" +
-        "connect <ip>[:port] \t connect to someone \n" +
-        "cls \t\t\t clear screen \n" +
-        "exit \t\t\t close app \n" +
-        "whoami \t\t\t get username \n" +
-        "setname <name> \t\t set new username \n" +
-        "encode <string> \t\t debug \n"
-        ;
+        var helpDict = new Dictionary<string, string>(){
+            {"help", "\t\t\t show this message"},
+            {"connect", "<ip>[:port] \t connect to someone"},
+            {"cls", "\t\t\t clear screen"},
+            {"exit", "\t\t\t close app"},
+            {"whoami", "\t\t\t get username"},
+            {"setname", "<name> \t\t set new username"},
+            {"encode", "<string> \t debug"}
+        };
 
-        var welcome = @"Welcome to chatter v0.1! Type ""/help"" to list all commands" + "\n";
+        var welcome = @"Welcome to chatter v0.2! Type ""/help"" to list all commands" + "\n";
 
         var commands = new Dictionary<string, Action<string[]>>(){
             {"connect", (argscmd) => {
@@ -71,9 +72,14 @@ public class DefaultInit : ICommand
                 catch(IndexOutOfRangeException){
                     new PrintLineMsg("No argument given\nUsage: connect <ip>[:port]").Execute();
                 }
-                
             }},
-            {"help", (argscmd) => {new PrintLineMsg(helpmsg).Execute();}},
+            {"help", (argscmd) => {
+                IoC.Get<IDictionary<string, string>>("Help.Dict")
+                .ToList()
+                .ForEach((kv) => {
+                    new PrintLineMsg($"{kv.Key} {kv.Value}").Execute();
+                });
+            }},
             {"cls", (argscmd) => {new ClearConsole().Execute();}},
             {"exit", (argscmd) => {
                 IoC.Get<ICommand>("Exit.Handler").Execute();
@@ -98,10 +104,9 @@ public class DefaultInit : ICommand
             }}
         };
 
-        var encoding = Encoding.UTF8; // have to be UTF-16, not UTF-8
-        
-        // Console.InputEncoding = encoding; // fixes on win
-        // Console.OutputEncoding = encoding;
+        var encoding = Encoding.UTF8;
+
+        IoC.Set("Help.Dict", (object[] args) => helpDict);
 
         IoC.Set("Encoding", (object[] args) => encoding);
 
@@ -122,9 +127,7 @@ public class DefaultInit : ICommand
         });
 
         ExceptionHandler.SetDefaultHandler((cmd, ex) => {
-            // Console.WriteLine($"Caught {ex.GetType()} in " + cmd.ToString());
             Console.WriteLine(ex.Message);
-            // Console.WriteLine(ex.StackTrace);
         });
 
         ExceptionHandler.SetHandler(typeof(RepeatCommand), typeof(NullReferenceException), (a, b) => {});

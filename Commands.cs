@@ -1,11 +1,3 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Reflection;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
-
 public interface ICommand {
     public void Execute();
 }
@@ -600,6 +592,8 @@ public class InitMessagingState : ICommand
             return new DeInitMessagingState();
         });
 
+        IoC.Get<IDictionary<string, string>>("Help.Dict")["exit"] = "\t\t\t leave chat";
+
         new AddCmdsToQueueCmd(new WriterWithYou()).Execute();
     }
 }
@@ -608,7 +602,11 @@ public class DeInitMessagingState : ICommand
 {
     public void Execute()
     {
+        var name = IoC.Get<string>("Info.Username");
         using(var connected = IoC.Get<Socket>("Connected")){
+            new SendMessage(
+                $"User {name} has disconnected; type /exit to leave chat"
+            ).Execute();
             connected.Disconnect(false);
         }
 
@@ -617,12 +615,14 @@ public class DeInitMessagingState : ICommand
         });
 
         IoC.Set("Message.Handler", (object[] args) => {
-            // var mess = (string)args[0];
             return new ActionCommand(() => {});
         });
 
+        IoC.Get<IDictionary<string, string>>("Help.Dict")["exit"] = "\t\t\t close app";
+
         new AddCmdsToQueueCmd(
             new NullifyIoCVar("Connected"),
+            new DefaultWriter(),
             new ClearConsole(),
             new PrintFromIoC("Welcome message")
         ).Execute();
@@ -802,8 +802,8 @@ public class TryConnect : ICommand
         }
         IoC.Set("Connected", (object[] args) => client);
 
-        new SendClientInfo().Execute(); // design flaw?
-        new ReceiveClientInfo().Execute(); // awaits momentally
+        new SendClientInfo().Execute();
+        new ReceiveClientInfo().Execute();
         new MessagingStateCommand().Execute();
         new PrintLineMsg(
             "Connected to " + 
