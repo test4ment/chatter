@@ -5,26 +5,28 @@ global using System.Text;
 global using System.Text.Json;
 global using System.Text.Json.Nodes;
 global using System.Runtime.InteropServices;
+using chatter.Tests;
 
-BlockingCollection<ICommand> queue = new();
 
-IoC.Set("Queue", (object[] args) => {return queue;});
-IoC.Set("IsRunning", (object[] args) => {return true;});
-
-queue.Add(new DefaultInit());
+// queue.Add(new DefaultInit());
 // queue.Add(new DebugExHandlerInit());
-queue.Add(new HelloUser());
-
-ICommand cmd;
+// queue.Add(new HelloUser());
+Queue<ICommand> queue = new();
+queue.Enqueue(new WriterTest(queue));
 
 Thread t = new Thread(() => {
-        while(IoC.Get<bool>("IsRunning")){
-            cmd = queue.Take();
-            try{
-                cmd.Execute();
-            }
-            catch(Exception e){
-                IoC.Get<ICommand>("Exception.Handler", cmd, e).Execute();
+        ICommand cmd;
+        // Queue<ICommand> queue = new();
+
+        while(true){
+            if(queue.Count > 0){
+                cmd = queue.Dequeue();
+                try{
+                    cmd.Execute();
+                }
+                catch(Exception e){
+                    ExceptionHandler.GetHandler(cmd, e)(cmd, e);
+                }
             }
         }
     }

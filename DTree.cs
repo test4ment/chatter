@@ -1,6 +1,8 @@
 using System.Runtime.ExceptionServices;
 
-public class DecisionTree<K, V> where K: notnull where V: notnull{
+public class DecisionTree<K, V> where K: notnull 
+                                where V: notnull
+{
     private IDictionary<K, object> holder;
 
     public DecisionTree(){
