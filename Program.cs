@@ -7,29 +7,14 @@ global using System.Text.Json.Nodes;
 global using System.Runtime.InteropServices;
 using chatter.Tests;
 
-
 // queue.Add(new DefaultInit());
 // queue.Add(new DebugExHandlerInit());
 // queue.Add(new HelloUser());
-Queue<ICommand> queue = new();
-queue.Enqueue(new WriterTest(queue));
 
-Thread t = new Thread(() => {
-        ICommand cmd;
-        // Queue<ICommand> queue = new();
+var ctx = new DefaultContext();
 
-        while(true){
-            if(queue.Count > 0){
-                cmd = queue.Dequeue();
-                try{
-                    cmd.Execute();
-                }
-                catch(Exception e){
-                    ExceptionHandler.GetHandler(cmd, e)(cmd, e);
-                }
-            }
-        }
-    }
-);
+ctx.Enqueue(new PrinterTest(ctx));
+
+var t = new Thread(ctx.Run);
 
 t.Start();

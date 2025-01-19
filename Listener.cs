@@ -1,46 +1,53 @@
-public class StartCmdListener : ICommand, IInterruptable{
-    private readonly Queue<ICommand> queue;
-    private readonly ICommand to_listen;
-    private readonly IInterruptable interruptor;
-    private bool interrupted = false;
+public interface IInterruptable{
+    public void Update(IInterruptor interruptable);
+}
 
-    public StartCmdListener(Queue<ICommand> queue, ICommand to_listen, IInterruptable interruptor)
+public interface IInterruptor{
+    public void Subscribe(IInterruptable interruptor);
+    public void Interrupt();
+}
+
+public class StartCmdListener : ICommand, IInterruptable{
+    private readonly IContext ctx;
+    private readonly ICommand to_listen;
+    private readonly CheckForInterruptionCmd repeat_cmd;
+    protected bool is_interrupted = false;
+
+    public StartCmdListener(IContext ctx, ICommand to_listen)
     {
-        this.queue = queue;
+        this.ctx = ctx;
         this.to_listen = to_listen;
-        this.interruptor = interruptor;
+        this.repeat_cmd = new CheckForInterruptionCmd(this);
     }
 
     public void Execute()
     {
-        queue.Enqueue(to_listen);
-        queue.Enqueue(this);
+        ctx.Enqueue(to_listen);
+        ctx.Enqueue(this.repeat_cmd);
     }
 
-    public void Interrupt() => interruptor.Interrupt();
+    protected void EnqueueMyself(){
+        ctx.Enqueue(this);
+    }
 
-    internal class EnqueueWithCheckForInterruption : ICommand
+    public void Update(IInterruptor interruptable)
     {
-        private readonly bool interrupted;
-        private readonly ICommand to_add;
-        private readonly Queue<ICommand> queue;
+        is_interrupted = true;
+    }
 
-        internal EnqueueWithCheckForInterruption(ref bool interrupted, ICommand to_add, Queue<ICommand> queue)
+    private class CheckForInterruptionCmd : ICommand
+    {
+        private readonly StartCmdListener inst;
+
+        internal CheckForInterruptionCmd(StartCmdListener inst)
         {
-            this.interrupted = interrupted;
-            this.to_add = to_add;
-            this.queue = queue;
+            this.inst = inst;
         }
 
-        public void Execute()
-        {
-            if(!interrupted){
-                queue.Enqueue(to_add);
+        public void Execute(){
+            if(!inst.is_interrupted){
+                inst.EnqueueMyself();
             }
         }
     }
-}
-
-public interface IInterruptable{
-    public void Interrupt();
 }

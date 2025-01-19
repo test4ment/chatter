@@ -2,146 +2,70 @@ public interface ICommand {
     public void Execute();
 }
 
-// public class PrintMsg : ICommand{
-//     private string message;
-//     private readonly IPrinter printer;
 
-//     public PrintMsg(string message, IPrinter printer){
-//         this.message = message;
-//         this.printer = printer;
-//     }
-//     public void Execute() {
-//         printer.Print(message);
-//     }
-// }
+public class StopApp : ICommand{
+    private readonly IContext ctx;
 
+    public StopApp(IContext ctx)
+    {
+        this.ctx = ctx;
+    }
 
-// public class ColoredExecutionCmd : ICommand
-// {
-//     private ConsoleColor writeColor;
-//     private ICommand cmd;
-//     public ColoredExecutionCmd(ICommand cmd, ConsoleColor writeColor)
-//     {
-//         this.writeColor = writeColor;
-//         this.cmd = cmd;
-//     }
+    public void Execute(){
+        ctx.Exit();
+    }
+}
 
-//     public void Execute()
-//     {
-//         var color = Console.ForegroundColor;
-//         Console.ForegroundColor = writeColor;
-//         try{
-//             cmd.Execute();
-//         }
-//         catch{
-//             throw;
-//         }
-//         finally{
-//             Console.ForegroundColor = color;
-//         }
-//     }
-// }
+public class MacroCmd : ICommand{
+    private IEnumerable<ICommand> cmds;
+    public MacroCmd(params ICommand[] cmds){
+        this.cmds = cmds;
+    }
 
+    public void Execute(){
+        foreach(var cmd in cmds){
+            cmd.Execute();
+        }
+    }
+}
 
-// public class WriterWithYou : ICommand
-// {
-//     public void Execute()
-//     {
-//         IoC.Set("stdin writer", (object[] args) => {
-//                 string var_to_write = (string)args[0];
-//                 ICommand? on_success = args[1] as ICommand;
-//                 // string name = IoC.Get<string>("Info.Username");
-//                 return new TryWriteStdIn(
-//                     var_to_write, 
-//                     on_success,
-//                     new ColoredExecutionCmd(
-//                         new PrintMsg("you: "),
-//                         ConsoleColor.Yellow
-//                     )
-//                 );
-//             }
-//         );
-//     }
-// }
+public class ActionCommand : ICommand
+{
+    private Action action;
+    public ActionCommand(Action action)
+    {
+        this.action = action;
+    }
 
-// public class StopApp : ICommand{
-//     public void Execute(){
-//         IoC.Set("IsRunning", (object[] args) => {return false;});
-//     }
-// }
+    public ActionCommand()
+    {
+        this.action = () => {};
+    }
 
-// public class ClearConsole : ICommand{
-//     public void Execute(){
-//         Console.Clear();
-//     }
-// }
+    public void Execute()
+    {
+        action();
+    }
+}
 
-// public class MacroCmd : ICommand{
-//     private IEnumerable<ICommand> cmds;
-//     public MacroCmd(params ICommand[] cmds){
-//         this.cmds = cmds;
-//     }
+public class GreetUser : ICommand
+{
+    private readonly string username;
+    private readonly IContext context;
 
-//     public void Execute(){
-//         foreach(var cmd in cmds){
-//             cmd.Execute();
-//         }
-//     }
-// }
+    public GreetUser(string username, IContext context)
+    {
+        this.username = username;
+        this.context = context;
+    }
 
-
-// public class RepeatCommand : ICommand{
-//     private string cmd_dep;    
-//     public RepeatCommand(string cmd_dep){
-//         this.cmd_dep = cmd_dep;
-//     }
-
-//     public void Execute(){
-//         IoC.Get<ICommand>(cmd_dep).Execute();
-
-//         IoC.Get<BlockingCollection<ICommand>>("Queue").Add(new RepeatCommand(cmd_dep));
-//     }
-// }
-
-
-
-// public class ActionCommand : ICommand
-// {
-//     private Action action;
-//     public ActionCommand(Action action)
-//     {
-//         this.action = action;
-//     }
-
-//     public ActionCommand()
-//     {
-//         this.action = () => {};
-//     }
-
-//     public void Execute()
-//     {
-//         action();
-//     }
-// }
-
-// public class GreetUser : ICommand
-// {
-//     public void Execute()
-//     {
-//         new PrintMsg("Hello ").Execute();
-//         new PrintFromIoC("Input.input").Execute();
-//         new PrintMsg("!\n").Execute();
-//     }
-// }
-
-// public class RememberUsername : ICommand
-// {
-//     public void Execute()
-//     {
-//         var name = IoC.Get<string>("Input.input");
-//         IoC.Set("Info.Username", (object[] args) => {return name;});
-//     }
-// }
+    public void Execute()
+    {
+        context.Enqueue(
+            new PrintMsg($"Hello {username}!", context.userIntefrace.printer_new_line)
+        );
+    }
+}
 
 // public class PrintMyName : ICommand
 // {
@@ -151,58 +75,6 @@ public interface ICommand {
 //     }
 // }
 
-// public class RegisterTcp : ICommand{
-//     public void Execute(){
-//         var tcp_server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-//         IoC.Set("TCP server", (object[] args) => {return tcp_server;});
-//     }
-// }
-
-// public class StartListeningTcp : ICommand
-// {
-//     private int port;
-//     public StartListeningTcp(int port = 25560){ // unhardcode
-//         this.port = port;
-//     }
-//     public void Execute()
-//     {
-//         var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-
-//         q.Add(new PrintLineMsg("Write local machine IP to listen connections (leave empty for localhost)"));
-//         q.Add(new AwaitIoCVar(
-//             "input",
-//             new ExecuteOnException(
-//                 new MacroCmd(
-//                     new SetDefaultValueForInput<string>(
-//                         (string str) => {
-//                             return str != "";
-//                         },
-//                         "127.0.0.1"
-//                     ),
-//                     new BindAndListenTcp(port), 
-//                     new ActionCommand(() => {
-//                         q.Add(new MacroCmd(
-//                                 new PrintMsg("Listening at "),
-//                                 new PrintFromIoC("IP"), 
-//                                 new PrintMsg($":{port}\n"),
-//                                 new PrintFromIoC("Welcome message"),
-//                                 new StartCmdListener(),
-//                                 new AwaitOneClient()
-//                             )
-//                         );
-//                         }
-//                     )
-//                 ),
-//                 new MacroCmd(
-//                     new AddCmdsToQueueCmd(new RethrowLatestExceptionCommand()),
-//                     new NullifyIoCVar("input"),
-//                     new StartListeningTcp(this.port)
-//                 )
-//             )
-//             )
-//         );
-//     }
-// }
 
 // public class SetDefaultValueForInput<T> : ICommand
 // where T: notnull
@@ -221,109 +93,29 @@ public interface ICommand {
 //     }
 // }
 
-// public class AddCmdsToQueueCmd : ICommand
-// {
-//     private ICommand[] cmds;
-//     public AddCmdsToQueueCmd(params ICommand[] cmds)
-//     {
-//         this.cmds = cmds;
-//     }
 
-//     public void Execute()
-//     {
-//         var q = IoC.Get<BlockingCollection<ICommand>>("Queue");
-//         cmds.ToList().ForEach(q.Add);
-//     }
-// }
+public class ThrowNewExceptionCmd : ICommand
+{
+    private Exception ex;
+    public ThrowNewExceptionCmd(Exception ex)
+    {
+        this.ex = ex;
+    }
+    public ThrowNewExceptionCmd(string message){
+        this.ex = new Exception(message);
+    }
 
-// public class ExecuteOnException : ICommand
-// {
-//     Type exception;
-//     ICommand to_exec;
-//     ICommand on_exception;
-//     public ExecuteOnException(ICommand to_exec, ICommand on_exception, Type? exception = null)
-//     {
-//         this.exception = exception ?? typeof(Exception);
-//         this.to_exec = to_exec;
-//         this.on_exception = on_exception;
-//     }
+    public ThrowNewExceptionCmd(string message, Exception inner_ex){
+        this.ex = new Exception(message, inner_ex);
+    }
 
-//     public void Execute()
-//     {
-//         try{
-//             to_exec.Execute();
-//         }
-//         catch(Exception e){
-//             if(exception.IsInstanceOfType(e)){
-//                 IoC.Set("Latest exception", (object[] args) => e);
-//                 on_exception.Execute();
-//             }
-//             else{
-//                 throw;
-//             }
-//         }
-//     }
-// }
+    public void Execute()
+    {
+        throw this.ex;
+    }
+}
 
-// public class RethrowLatestExceptionCommand : ICommand
-// {
-//     public void Execute()
-//     {
-//         try{
-//             var ex = IoC.Get<Exception>("Latest exception");
-//             throw ex;
-//         }
-//         catch(KeyNotFoundException){}
-//     }
-// }
 
-// public class ThrowNewExceptionCmd : ICommand
-// {
-//     private Exception ex;
-//     public ThrowNewExceptionCmd(Exception ex)
-//     {
-//         this.ex = ex;
-//     }
-//     public ThrowNewExceptionCmd(string message){
-//         this.ex = new Exception(message);
-//     }
-
-//     public ThrowNewExceptionCmd(string message, Exception inner_ex){
-//         this.ex = new Exception(message, inner_ex);
-//     }
-
-//     public void Execute()
-//     {
-//         throw this.ex;
-//     }
-// }
-
-// public class BindAndListenTcp : ICommand
-// {
-//     private int port;
-//     public BindAndListenTcp(int port = 25560){
-//         this.port = port;
-//     }
-//     public void Execute()
-//     {
-//         Socket server = IoC.Get<Socket>("TCP server");
-//         IPAddress ip = IPAddress.Parse(IoC.Get<string>("Input.input"));
-//         IoC.Set("IP", (object[] args) => ip.ToString());
-//         server.Blocking = false;
-//         server.Bind(new IPEndPoint(ip, port));
-//         server.Listen(1);
-//     }
-// }
-
-// public class TryAcceptOneClient : ICommand
-// {
-//     public void Execute()
-//     {
-//         Socket server = IoC.Get<Socket>("TCP server");
-//         Socket client = server.Accept();
-//         IoC.Set("Connected", (object[] args) => {return client;});
-//     }
-// }
 
 // public class InitMessagingState : ICommand
 // {
@@ -375,77 +167,6 @@ public interface ICommand {
 //     }
 // }
 
-// public class ForceReadMessage : ICommand
-// {
-//     private Action<string> action_on_message;
-//     private int awaitms;
-//     public ForceReadMessage(Action<string> action_on_message, int awaitms = 50)
-//     {
-//         this.action_on_message = action_on_message;
-//         this.awaitms = awaitms;
-//     }
-//     public ForceReadMessage(int awaitms = 50)
-//     {
-//         this.action_on_message = (mess) => {
-//             new AddCmdsToQueueCmd(
-//                 new PrintLineMsgChat(mess)
-//             ).Execute();
-//         };
-//         this.awaitms = awaitms;
-//     }
-
-//     public void Execute()
-//     {
-//         var connected = IoC.Get<Socket>("Connected");
-//         var bytesRead = new byte[1024];
-//         var waitUntil = DateTime.Now.AddMilliseconds(awaitms);
-
-//         while (DateTime.Now <= waitUntil)
-//         {
-//             try
-//             {
-//                 if (connected.Receive(bytesRead) != 0){
-//                     var encoding = IoC.Get<Encoding>("Encoding");
-//                     string message = encoding.GetString(bytesRead.TakeWhile((byt) => byt != 0).ToArray()); // take all nonnull
-//                     // string message = (string)encoding.GetString(bytesRead).TakeWhile((ch) => ch != (char)0x0); // utf16 support
-
-//                     action_on_message(message); // Redo with ICommand
-//                     break;
-//                 }
-//             }
-//             catch (SocketException e)
-//             {
-//                 if(e.SocketErrorCode != SocketError.WouldBlock) throw;
-//             }
-//         }
-//     }
-// }
-
-// public class PrintLineMsgChat: ICommand
-// {
-//     private string mess;
-
-//     public PrintLineMsgChat(string mess)
-//     {
-//         this.mess = mess;
-//     }
-
-//     public void Execute()
-//     {
-//         var name = IoC.Get<string>("Connected.Username");
-//         var timestamp = TimeOnly.FromDateTime(DateTime.Now).ToShortTimeString();
-
-//         new ColoredExecutionCmd(
-//             new PrintMsg(timestamp + " "),
-//             ConsoleColor.DarkGray
-//         ).Execute();
-//         new ColoredExecutionCmd(
-//             new PrintMsg(name + ": "),
-//             ConsoleColor.Yellow
-//         ).Execute();
-//         new PrintLineMsg(mess).Execute();
-//     }
-// }
 
 // public class StartMessageListener : ICommand
 // {

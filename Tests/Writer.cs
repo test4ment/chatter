@@ -1,18 +1,25 @@
 namespace chatter.Tests;
 
-public class WriterTest : ICommand
+public abstract class Test : ICommand
 {
-    private readonly Queue<ICommand> queue;
+    protected readonly IContext ctx;
 
-    public WriterTest(Queue<ICommand> queue)
+    public Test(IContext ctx){
+        this.ctx = ctx;
+    }
+    public abstract void Execute();
+}
+
+public class WriterTest : Test
+{
+    public WriterTest(IContext ctx) : base(ctx)
     {
-        this.queue = queue;
     }
 
-    public void Execute()
+    public override void Execute()
     {
-        queue.Enqueue(
-            new StartCmdListener(queue, new TryWriteStdIn(
+        ctx.Enqueue(
+            new StartCmdListener(ctx, new TryWriteStdIn(
                 new EchoHandle(
                     new StdOutPrintLineAdapter()
                 )
@@ -21,30 +28,28 @@ public class WriterTest : ICommand
     }
 }
 
-public class WriterInterruptableTest : ICommand
+public class WriterInterruptableTest : Test
 {
-    private readonly Queue<ICommand> queue;
-
-    public WriterInterruptableTest(Queue<ICommand> queue)
+    public WriterInterruptableTest(IContext ctx) : base(ctx)
     {
-        this.queue = queue;
     }
 
-    public void Execute()
+    public override void Execute()
     {
-        queue.Enqueue(
-            new StartCmdListener(queue, new TryWriteStdIn(
-                new EchoInterruptableHandle(
-                    new StdOutPrintLineAdapter()
-                )
-            ))
+        var handler = new EchoInterruptableHandle(new StdOutPrintLineAdapter());
+        var listener = new StartCmdListener(ctx, new TryWriteStdIn(handler));
+
+        ctx.Enqueue(
+            listener    
         );
+
+        handler.Subscribe(listener);
     }
 }
 
 public class EchoHandle : IInputHandler
 {
-    internal readonly IPrinter printer;
+    protected readonly IPrinter printer;
 
     public EchoHandle(IPrinter printer)
     {
@@ -57,9 +62,10 @@ public class EchoHandle : IInputHandler
     }
 }
 
-public class EchoInterruptableHandle : EchoHandle, IInterruptable
+public class EchoInterruptableHandle : EchoHandle, IInterruptor
 {
     public EchoInterruptableHandle(IPrinter printer) : base(printer) {}
+    private IInterruptable? interruptable;
 
     public override void Handle(string input)
     {
@@ -74,6 +80,11 @@ public class EchoInterruptableHandle : EchoHandle, IInterruptable
 
     public void Interrupt()
     {
-        throw new NotImplementedException();
+        interruptable?.Update(this);
+    }
+
+    public void Subscribe(IInterruptable interruptable)
+    {
+        this.interruptable = interruptable;
     }
 }
